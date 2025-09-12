@@ -1,0 +1,1 @@
+# Wire for a WebSocket
