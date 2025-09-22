@@ -35,8 +35,9 @@ dependencies = [
 
 [dependency-groups]
 test = [
+  "mypy",
+  "ruff",
   "pytest",
-  "anycorn",
   "trio",
 ]
 
