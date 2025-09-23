@@ -31,10 +31,19 @@ jobs:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
 
-    - name: Install hatch
+    - name: Install wiredb and wires
       run: |
         pip install . --group test
+        pip install wires/memory
         pip install wires/websocket
 
+    - name: Check types
+      run: |
+        mypy src wires tests
+
+    - name: Lint
+      run: |
+        ruff check src wires tests
+
     - name: Run tests
-      run: pytest -v
+      run: pytest -v --color=yes

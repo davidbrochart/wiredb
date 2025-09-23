@@ -3,9 +3,9 @@ requires = ["uv_build"]
 build-backend = "uv_build"
 
 [project]
-name = "wire_websocket"
+name = "wire_memory"
 version = "0.0.0"
-description = "Wire for communicating over WebSocket"
+description = "Wire for communicating over memory"
 license = { file = "LICENSE" }
 authors = [
   { name = "David Brochart", email = "david.brochart@gmail.com" },
@@ -29,16 +29,14 @@ classifiers = [
 ]
 dependencies = [
   "pycrdt",
-  "httpx_ws",
-  "anycorn",
 ]
 
 [project.urls]
 Homepage = "https://github.com/davidbrochart/wiredb"
 
 [tool.uv.build-backend]
-module-name = "wire_websocket"
+module-name = "wire_memory"
 
 [project.entry-points.wires]
-websocket_client = "wire_websocket.client_wire:ClientWire"
-websocket_server = "wire_websocket.server_wire:ServerWire"
+memory_client = "wire_memory.client_wire:ClientWire"
+memory_server = "wire_memory.server_wire:ServerWire"

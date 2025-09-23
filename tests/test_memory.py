@@ -7,11 +7,11 @@ from wiredb import bind, connect
 
 pytestmark = pytest.mark.anyio
 
-async def test_websocket(free_tcp_port):
-    async with bind("websocket", host="localhost", port=free_tcp_port):
+async def test_memory():
+    async with bind("memory") as server:
         async with (
-            connect("websocket", host="http://localhost", port=free_tcp_port) as client0,
-            connect("websocket", host="http://localhost", port=free_tcp_port) as client1,
+            connect("memory", server=server) as client0,
+            connect("memory", server=server) as client1,
         ):
             text0 = client0.doc.get("text", type=Text)
             text1 = client1.doc.get("text", type=Text)
