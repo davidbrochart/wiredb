@@ -41,7 +41,7 @@ class ASGIWebsocket(Channel):
             return message["bytes"]
         if message["type"] == "websocket.disconnect":
             raise StopAsyncIteration()
-        return b""
+        return b""  # pragma: nocover
 
 
 class ASGIServer:
