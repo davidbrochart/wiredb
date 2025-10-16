@@ -36,12 +36,14 @@ class Provider:
         self._ready = Event()
 
     async def _run(self):
-        sync_message = create_sync_message(self._doc)
+        async with self._doc.new_transaction():
+            sync_message = create_sync_message(self._doc)
         await self._channel.send(sync_message)
         self._task_group.start_soon(self._send_updates)
         async for message in self._channel:
             if message[0] == YMessageType.SYNC:
-                reply = handle_sync_message(message[1:], self._doc)
+                async with self._doc.new_transaction():
+                    reply = handle_sync_message(message[1:], self._doc)
                 if reply is not None:
                     await self._channel.send(reply)
                     self._ready.set()

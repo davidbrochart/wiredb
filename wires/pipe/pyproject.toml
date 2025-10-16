@@ -3,9 +3,9 @@ requires = ["uv_build"]
 build-backend = "uv_build"
 
 [project]
-name = "wiredb"
+name = "wire_pipe"
 version = "0.1.0"
-description = "WireDB"
+description = "Wire for communicating over pipes"
 license = { file = "LICENSE" }
 authors = [
   { name = "David Brochart", email = "david.brochart@gmail.com" },
@@ -28,22 +28,16 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
-
 dependencies = [
-  "anyio",
   "pycrdt",
-]
-
-[dependency-groups]
-test = [
-  "mypy",
-  "ruff",
-  "pytest",
-  "trio",
 ]
 
 [project.urls]
 Homepage = "https://github.com/davidbrochart/wiredb"
 
 [tool.uv.build-backend]
-module-name = "wiredb"
+module-name = "wire_pipe"
+
+[project.entry-points.wires]
+pipe_client = "wire_pipe.client_wire:ClientWire"
+pipe_server = "wire_pipe.server_wire:ServerWire"

@@ -5,12 +5,24 @@ from contextlib import AsyncExitStack
 from importlib.metadata import entry_points
 from types import TracebackType
 
-from anyio import Lock, create_task_group
+from anyio import Lock, TASK_STATUS_IGNORED, create_task_group
 from anyio.abc import TaskStatus
 from pycrdt import Channel, Doc, YMessageType, create_sync_message, create_update_message, handle_sync_message
 
 
 class ServerWire(ABC):
+    _room_manager = None
+
+    @property
+    def room_manager(self) -> RoomManager:
+        if self._room_manager is None:
+            self._room_manager = RoomManager()
+        return self._room_manager
+
+    @room_manager.setter
+    def room_manager(self, value: RoomManager) -> None:
+        self._room_manager = value
+
     @abstractmethod
     async def __aenter__(self) -> ServerWire: ...
 
@@ -25,9 +37,14 @@ def bind(wire: str, **kwargs) -> ServerWire:
 
 
 class Room:
-    def __init__(self) -> None:
+    def __init__(self, id: str) -> None:
+        self._id = id
         self._doc: Doc = Doc()
         self._clients: set[Channel] = set()
+
+    @property
+    def doc(self) -> Doc:
+        return self._doc
 
     async def start(self, *, task_status: TaskStatus[None]):
         async with self._doc.events() as events:
@@ -42,23 +59,31 @@ class Room:
                         except BaseException:
                             self._clients.discard(client)
 
-    async def serve(self, client: Channel):
+    async def serve(self, client: Channel, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED):
         self._clients.add(client)
+        started = False
         try:
-            sync_message = create_sync_message(self._doc)
+            async with self._doc.new_transaction():
+                sync_message = create_sync_message(self._doc)
             await client.send(sync_message)
+            task_status.started()
+            started = True
             async for message in client:
                 message_type = message[0]
                 if message_type == YMessageType.SYNC:
-                    reply = handle_sync_message(message[1:], self._doc)
+                    async with self._doc.new_transaction():
+                        reply = handle_sync_message(message[1:], self._doc)
                     if reply is not None:
                         await client.send(reply)
         except BaseException:
+            if not started:
+                task_status.started()
             self._clients.discard(client)
 
 
 class RoomManager:
-    def __init__(self) -> None:
+    def __init__(self, room_type: type[Room] = Room) -> None:
+        self._room_type = room_type
         self._rooms: dict[str, Room] = {}
         self._lock = Lock()
 
@@ -80,7 +105,7 @@ class RoomManager:
     async def get_room(self, id: str) -> Room:
         async with self._lock:
             if id not in self._rooms:
-                room = Room()
+                room = self._room_type(id)
                 await self._task_group.start(room.start)
                 self._rooms[id] = room
             else:
