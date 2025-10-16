@@ -25,7 +25,10 @@ class ClientWire(ABC):
 
 def connect(wire: str, *, id: str = "", **kwargs) -> ClientWire:
     eps = entry_points(group="wires")
-    _Wire = eps[f"{wire}_client"].load()
+    try:
+        _Wire = eps[f"{wire}_client"].load()
+    except KeyError:
+        raise RuntimeError(f'No client found for "{wire}", did you forget to install "wire-{wire}"?')
     return _Wire(id, **kwargs)
 
 
