@@ -7,14 +7,14 @@ from types import TracebackType
 from anyio import Lock, create_task_group, create_memory_object_stream
 from pycrdt import Channel
 
-from wiredb import Room, RoomManager, ServerWire as _ServerWire
+from wiredb import Room, ServerWire as _ServerWire
 
 
 class ServerWire(_ServerWire):
     async def __aenter__(self) -> ServerWire:
         async with AsyncExitStack() as exit_stack:
             self._task_group = await exit_stack.enter_async_context(create_task_group())
-            self._room_manager = await exit_stack.enter_async_context(RoomManager())
+            self.room_manager = await exit_stack.enter_async_context(self.room_manager)
             self._exit_stack = exit_stack.pop_all()
         return self
 
@@ -30,7 +30,7 @@ class ServerWire(_ServerWire):
         server_send_stream, client_receive_stream = create_memory_object_stream[bytes](max_buffer_size=math.inf)
         client_send_stream, server_receive_stream = create_memory_object_stream[bytes](max_buffer_size=math.inf)
         channel = Memory(server_send_stream, server_receive_stream, id)
-        room = await self._room_manager.get_room(id)
+        room = await self.room_manager.get_room(id)
         self._task_group.start_soon(self._serve, room, channel)
         return client_send_stream, client_receive_stream
 
