@@ -49,13 +49,13 @@ class HttpxWebsocket(Channel):
         try:
             message = await self.recv()
         except Exception:
-            raise StopAsyncIteration()
+            raise StopAsyncIteration()  # pragma: nocover
 
         return message
 
     @property
     def path(self) -> str:
-        return self._path
+        return self._path  # pragma: nocover
 
     async def send(self, message: bytes):
         async with self._send_lock:

@@ -32,6 +32,6 @@ class ClientWire(_ClientWire):
     ) -> bool | None:
         try:
             os.fdopen(self._self_sender, "wb", buffering=0).write(STOP)
-        except BaseException:
+        except BaseException:  # pragma: nocover
             pass
         return await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)

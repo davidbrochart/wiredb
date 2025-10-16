@@ -15,11 +15,11 @@ concurrency:
 jobs:
   test:
     name: Tests
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}-latest
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu, macos, windows]
         python-version: [ '3.10', '3.11', '3.12', '3.13', '3.14' ]
 
     steps:
@@ -47,4 +47,11 @@ jobs:
         ruff check src wires tests
 
     - name: Run tests
+      if: ${{ !((matrix.python-version == '3.14') && (matrix.os == 'ubuntu')) }}
       run: pytest -v --color=yes
+
+    - name: Run code coverage
+      if: ${{ (matrix.python-version == '3.14') && (matrix.os == 'ubuntu') }}
+      run: |
+        coverage run -m pytest tests
+        coverage report --show-missing --fail-under=100

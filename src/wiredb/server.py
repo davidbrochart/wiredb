@@ -45,10 +45,6 @@ class Room:
         self._doc: Doc = Doc()
         self._clients: set[Channel] = set()
 
-    @property
-    def doc(self) -> Doc:
-        return self._doc
-
     async def start(self, *, task_status: TaskStatus[None]):
         async with self._doc.events() as events:
             task_status.started()
@@ -59,7 +55,7 @@ class Room:
                     for client in clients:
                         try:
                             await client.send(message)
-                        except BaseException:
+                        except BaseException:  # pragma: nocover
                             self._clients.discard(client)
 
     async def serve(self, client: Channel, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED):
@@ -79,7 +75,7 @@ class Room:
                     if reply is not None:
                         await client.send(reply)
         except BaseException:
-            if not started:
+            if not started:  # pragma: nocover
                 task_status.started()
             self._clients.discard(client)
 

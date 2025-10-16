@@ -34,7 +34,7 @@ class ServerWire(_ServerWire):
         for sender in self._self_senders:
             try:
                 os.fdopen(sender, "wb", buffering=0).write(STOP)
-            except BaseException:
+            except BaseException:  # pragma: nocover
                 pass
         self._task_group.cancel_scope.cancel()
         return await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
@@ -70,13 +70,13 @@ class Pipe(Channel):
         try:
             message = await self.recv()
         except Exception:
-            raise StopAsyncIteration()
+            raise StopAsyncIteration()  # pragma: nocover
 
         return message
 
     @property
     def path(self) -> str:
-        return self._path
+        return self._path  # pragma: nocover
 
     async def send(self, message: bytes):
         msg = message + SEPARATOR
