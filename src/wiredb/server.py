@@ -32,7 +32,10 @@ class ServerWire(ABC):
 
 def bind(wire: str, **kwargs) -> ServerWire:
     eps = entry_points(group="wires")
-    _Wire = eps[f"{wire}_server"].load()
+    try:
+        _Wire = eps[f"{wire}_server"].load()
+    except KeyError:
+        raise RuntimeError(f'No server found for "{wire}", did you forget to install "wire-{wire}"?')
     return _Wire(**kwargs)
 
 
