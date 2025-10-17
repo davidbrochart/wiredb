@@ -33,6 +33,11 @@ jobs:
     steps:
     - name: Retrieve packages
       uses: actions/download-artifact@v5
+      with:
+        name: dist
+        path: dist
+    - name: Display structure of downloaded files
+      run: ls -R
     - name: Upload packages
       uses: pypa/gh-action-pypi-publish@release/v1
 
