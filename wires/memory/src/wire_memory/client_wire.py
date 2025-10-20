@@ -3,14 +3,15 @@ from __future__ import annotations
 from contextlib import AsyncExitStack
 from types import TracebackType
 
+from pycrdt import Doc
 from wiredb import Provider, ClientWire as _ClientWire
 
 from .server_wire import Memory, ServerWire
 
 
 class ClientWire(_ClientWire):
-    def __init__(self, id: str, *, server: ServerWire) -> None:
-        super().__init__()
+    def __init__(self, id: str, doc: Doc | None = None, *, server: ServerWire) -> None:
+        super().__init__(doc)
         self._id = id
         self._server = server
 

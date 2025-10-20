@@ -5,14 +5,15 @@ from contextlib import AsyncExitStack
 from types import TracebackType
 
 from anyio import create_task_group
+from pycrdt import Doc
 from wiredb import Provider, ClientWire as _ClientWire
 
 from .server_wire import STOP, Pipe
 
 
 class ClientWire(_ClientWire):
-    def __init__(self, id: str, *, connection) -> None:
-        super().__init__()
+    def __init__(self, id: str, doc: Doc | None = None, *, connection) -> None:
+        super().__init__(doc)
         self._id = id
         self._sender, self._receiver, self._self_sender = connection
 
