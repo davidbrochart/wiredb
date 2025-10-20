@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "wire_pipe"
-version = "0.1.1"
+version = "0.1.2"
 description = "Wire for communicating over pipes"
 license = { file = "LICENSE" }
 authors = [
