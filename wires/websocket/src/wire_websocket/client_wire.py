@@ -5,14 +5,14 @@ from types import TracebackType
 
 from anyio import Lock
 from httpx_ws import AsyncWebSocketSession, aconnect_ws
-from pycrdt import Channel
+from pycrdt import Doc, Channel
 
 from wiredb import Provider, ClientWire as _ClientWire
 
 
 class ClientWire(_ClientWire):
-    def __init__(self, id: str, *, host: str, port: int) -> None:
-        super().__init__()
+    def __init__(self, id: str, doc: Doc | None = None, *, host: str, port: int) -> None:
+        super().__init__(doc)
         self._id = id
         self._host = host
         self._port = port

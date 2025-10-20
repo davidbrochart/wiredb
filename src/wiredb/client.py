@@ -5,12 +5,12 @@ from contextlib import AsyncExitStack
 from importlib.metadata import entry_points
 
 from anyio import Event, create_task_group
-from pycrdt import Channel, Doc, YMessageType, create_sync_message, create_update_message, handle_sync_message
+from pycrdt import Channel, Doc, YMessageType, YSyncMessageType, create_sync_message, create_update_message, handle_sync_message
 
 
 class ClientWire(ABC):
-    def __init__(self) -> None:
-        self._doc: Doc = Doc()
+    def __init__(self, doc: Doc | None = None) -> None:
+        self._doc: Doc = Doc() if doc is None else doc
 
     @property
     def doc(self) -> Doc:
@@ -23,13 +23,13 @@ class ClientWire(ABC):
     async def __aexit__(self, exc_type, exc_value, exc_tb) -> bool | None: ...
 
 
-def connect(wire: str, *, id: str = "", **kwargs) -> ClientWire:
+def connect(wire: str, *, id: str = "", doc: Doc | None = None, **kwargs) -> ClientWire:
     eps = entry_points(group="wires")
     try:
         _Wire = eps[f"{wire}_client"].load()
     except KeyError:
         raise RuntimeError(f'No client found for "{wire}", did you forget to install "wire-{wire}"?')
-    return _Wire(id, **kwargs)
+    return _Wire(id, doc, **kwargs)
 
 
 class Provider:
@@ -49,9 +49,11 @@ class Provider:
                     reply = handle_sync_message(message[1:], self._doc)
                 if reply is not None:
                     await self._channel.send(reply)
+                if message[1] == YSyncMessageType.SYNC_STEP2:
                     self._ready.set()
 
     async def _send_updates(self):
+        await self._ready.wait()
         async with self._doc.events() as events:
             async for event in events:
                 message = create_update_message(event.update)
