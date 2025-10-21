@@ -37,6 +37,7 @@ jobs:
         pip install wires/memory
         pip install wires/pipe
         pip install wires/websocket
+        pip install wires/file
 
     - name: Check types
       run: |

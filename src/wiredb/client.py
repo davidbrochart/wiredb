@@ -4,7 +4,8 @@ from abc import ABC, abstractmethod
 from contextlib import AsyncExitStack
 from importlib.metadata import entry_points
 
-from anyio import Event, create_task_group
+from anyio import Event, TASK_STATUS_IGNORED, create_task_group
+from anyio.abc import TaskStatus
 from pycrdt import Channel, Doc, YMessageType, YSyncMessageType, create_sync_message, create_update_message, handle_sync_message
 
 
@@ -42,7 +43,6 @@ class Provider:
         async with self._doc.new_transaction():
             sync_message = create_sync_message(self._doc)
         await self._channel.send(sync_message)
-        self._task_group.start_soon(self._send_updates)
         async for message in self._channel:
             if message[0] == YMessageType.SYNC:
                 async with self._doc.new_transaction():
@@ -50,11 +50,12 @@ class Provider:
                 if reply is not None:
                     await self._channel.send(reply)
                 if message[1] == YSyncMessageType.SYNC_STEP2:
-                    self._ready.set()
+                   await self._task_group.start(self._send_updates)
 
-    async def _send_updates(self):
-        await self._ready.wait()
+    async def _send_updates(self, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED):
         async with self._doc.events() as events:
+            self._ready.set()
+            task_status.started()
             async for event in events:
                 message = create_update_message(event.update)
                 await self._channel.send(message)
