@@ -3,9 +3,9 @@ requires = ["uv_build"]
 build-backend = "uv_build"
 
 [project]
-name = "wiredb"
-version = "0.1.2"
-description = "WireDB"
+name = "wire_file"
+version = "0.0.0"
+description = "Wire for storing to a file"
 license = { file = "LICENSE" }
 authors = [
   { name = "David Brochart", email = "david.brochart@gmail.com" },
@@ -28,32 +28,16 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
-
 dependencies = [
-  "anyio",
   "pycrdt",
-]
-
-[dependency-groups]
-test = [
-  "mypy",
-  "ruff",
-  "pytest",
-  "trio",
-  "coverage",
+  "anyio",
 ]
 
 [project.urls]
 Homepage = "https://github.com/davidbrochart/wiredb"
 
 [tool.uv.build-backend]
-module-name = "wiredb"
+module-name = "wire_file"
 
-[tool.uv.workspace]
-members = ["wires/*"]
-
-[tool.uv.sources]
-wire-memory = { workspace = true }
-wire-pipe = { workspace = true }
-wire-websocket = { workspace = true }
-wire-file = { workspace = true }
+[project.entry-points.wires]
+file_client = "wire_file.client_wire:ClientWire"
