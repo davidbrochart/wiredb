@@ -1,5 +1,9 @@
 # Version history
 
+## 0.1.3
+
+- Add file wire.
+
 ## 0.1.2
 
 - Allow passing a doc to a client.

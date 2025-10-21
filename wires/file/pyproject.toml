@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "wire_file"
-version = "0.0.0"
+version = "0.1.0"
 description = "Wire for storing to a file"
 license = { file = "LICENSE" }
 authors = [
