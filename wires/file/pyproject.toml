@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "wire_file"
-version = "0.1.0"
+version = "0.2.0"
 description = "Wire for storing to a file"
 license = { file = "LICENSE" }
 authors = [
@@ -29,8 +29,7 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-  "pycrdt",
-  "anyio",
+  "wiredb >=0.2.0,<0.3.0",
 ]
 
 [project.urls]

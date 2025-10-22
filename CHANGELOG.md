@@ -1,5 +1,9 @@
 # Version history
 
+## 0.2.0
+
+- Add support for connected server rooms.
+
 ## 0.1.3
 
 - Add file wire.
