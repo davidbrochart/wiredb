@@ -1,14 +1,19 @@
 from __future__ import annotations
 
+import sys
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from importlib.metadata import entry_points
-from typing import Self
 
 from anyio import AsyncContextManagerMixin, Event, TASK_STATUS_IGNORED, create_task_group
 from anyio.abc import TaskStatus
 from pycrdt import Channel, Doc, YMessageType, YSyncMessageType, create_sync_message, create_update_message, handle_sync_message
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:  # pragma: nocover
+    from typing_extensions import Self
 
 
 class ClientWire(ABC):
