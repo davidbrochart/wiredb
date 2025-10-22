@@ -1,1 +1,3 @@
-# Wire for communicating over pipes
+# wire-pipe
+
+Wire for communicating over pipes.

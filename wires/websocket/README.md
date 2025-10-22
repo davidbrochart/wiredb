@@ -1,1 +1,3 @@
-# Wire for communicating over WebSocket
+# wire-websocket
+
+Wire for communicating over WebSocket.

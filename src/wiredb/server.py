@@ -6,7 +6,7 @@ from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from importlib.metadata import entry_points
 
-from anyio import AsyncContextManagerMixin, Lock, TASK_STATUS_IGNORED, create_task_group, get_cancelled_exc_class, sleep_forever
+from anyio import AsyncContextManagerMixin, Event, Lock, TASK_STATUS_IGNORED, create_task_group, get_cancelled_exc_class
 from anyio.abc import TaskGroup, TaskStatus
 from pycrdt import Channel, Doc, YMessageType, create_sync_message, create_update_message, handle_sync_message
 
@@ -17,7 +17,7 @@ else:  # pragma: nocover
 
 
 class ServerWire(ABC):
-    _room_manager = None
+    _room_manager: RoomManager | None = None
 
     @property
     def room_manager(self) -> RoomManager:
@@ -50,6 +50,7 @@ class Room(AsyncContextManagerMixin):
         self._id = id
         self._doc: Doc = Doc()
         self._clients: set[Channel] = set()
+        self._clean_event = Event()
 
     @property
     def id(self) -> str:
@@ -80,10 +81,10 @@ class Room(AsyncContextManagerMixin):
                         try:
                             await client.send(message)
                         except get_cancelled_exc_class():  # pragma: nocover
-                            self._clients.discard(client)
+                            self._remove_client(client)
                             raise
                         except BaseException:  # pragma: nocover
-                            self._clients.discard(client)
+                            self._remove_client(client)
 
     async def serve(self, client: Channel, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED):
         self._clients.add(client)
@@ -108,7 +109,12 @@ class Room(AsyncContextManagerMixin):
         finally:
             if not started:  # pragma: nocover
                 task_status.started()
-            self._clients.discard(client)
+            self._remove_client(client)
+
+    def _remove_client(self, client: Channel) -> None:
+        self._clients.discard(client)
+        if not self._clients:
+            self._clean_event.set()
 
 
 class RoomManager(AsyncContextManagerMixin):
@@ -126,7 +132,8 @@ class RoomManager(AsyncContextManagerMixin):
     async def _create_room(self, id: str, *, task_status: TaskStatus[Room]):
         async with self._room_factory(id) as room:
             task_status.started(room)
-            await sleep_forever()
+            await room._clean_event.wait()
+            del self._rooms[id]
 
     async def get_room(self, id: str) -> Room:
         async with self._lock:
