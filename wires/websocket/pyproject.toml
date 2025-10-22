@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "wire_websocket"
-version = "0.2.0"
+version = "0.2.1"
 description = "Wire for communicating over WebSocket"
 license = { file = "LICENSE" }
 authors = [

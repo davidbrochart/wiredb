@@ -1,5 +1,9 @@
 # Version history
 
+## 0.2.1
+
+- Clean room when clients leave.
+
 ## 0.2.0
 
 - Add support for connected server rooms.
