@@ -1,42 +1,47 @@
 from __future__ import annotations
 
-from contextlib import AsyncExitStack
-from types import TracebackType
+import sys
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
-from anyio import Lock
+from anyio import AsyncContextManagerMixin, Lock, create_task_group, get_cancelled_exc_class, sleep_forever
 from httpx_ws import AsyncWebSocketSession, aconnect_ws
 from pycrdt import Doc, Channel
 
 from wiredb import Provider, ClientWire as _ClientWire
 
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:  # pragma: nocover
+    from typing_extensions import Self
 
-class ClientWire(_ClientWire):
+
+class ClientWire(AsyncContextManagerMixin, _ClientWire):
     def __init__(self, id: str, doc: Doc | None = None, *, host: str, port: int) -> None:
         super().__init__(doc)
         self._id = id
         self._host = host
         self._port = port
 
-    async def __aenter__(self) -> ClientWire:
-        async with AsyncExitStack() as exit_stack:
-            ws: AsyncWebSocketSession = await exit_stack.enter_async_context(
-                aconnect_ws(
-                    f"{self._host}:{self._port}/{self._id}",
-                    keepalive_ping_interval_seconds=None,
-                )
-            )
-            channel = HttpxWebsocket(ws, self._id)
-            await exit_stack.enter_async_context(Provider(self._doc, channel))
-            self._exit_stack = exit_stack.pop_all()
-        return self
+    async def _connect_ws(self) -> None:
+        try:
+            ws: AsyncWebSocketSession
+            async with aconnect_ws(
+                f"{self._host}:{self._port}/{self._id}",
+                keepalive_ping_interval_seconds=None,
+            ) as ws:
+                channel = HttpxWebsocket(ws, self._id)
+                async with Provider(self._doc, channel):
+                    await sleep_forever()
+        except get_cancelled_exc_class():
+            pass
 
-    async def __aexit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
-    ) -> bool | None:
-        return await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
+    @asynccontextmanager
+    async def __asynccontextmanager__(self) -> AsyncGenerator[Self]:
+        async with create_task_group() as self._task_group:
+            self._task_group.start_soon(self._connect_ws)
+            yield self
+            self._task_group.cancel_scope.cancel()
 
 
 class HttpxWebsocket(Channel):
