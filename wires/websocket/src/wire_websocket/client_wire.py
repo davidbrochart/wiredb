@@ -4,7 +4,8 @@ import sys
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from anyio import AsyncContextManagerMixin, Lock, create_task_group, get_cancelled_exc_class, sleep_forever
+from anyio import AsyncContextManagerMixin, Lock, TASK_STATUS_IGNORED, create_task_group, get_cancelled_exc_class, sleep_forever
+from anyio.abc import TaskStatus
 from httpx_ws import AsyncWebSocketSession, aconnect_ws
 from pycrdt import Doc, Channel
 
@@ -23,7 +24,7 @@ class ClientWire(AsyncContextManagerMixin, _ClientWire):
         self._host = host
         self._port = port
 
-    async def _connect_ws(self) -> None:
+    async def _connect_ws(self, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED) -> None:
         try:
             ws: AsyncWebSocketSession
             async with aconnect_ws(
@@ -32,6 +33,7 @@ class ClientWire(AsyncContextManagerMixin, _ClientWire):
             ) as ws:
                 channel = HttpxWebsocket(ws, self._id)
                 async with Provider(self._doc, channel):
+                    task_status.started()
                     await sleep_forever()
         except get_cancelled_exc_class():
             pass
@@ -39,7 +41,7 @@ class ClientWire(AsyncContextManagerMixin, _ClientWire):
     @asynccontextmanager
     async def __asynccontextmanager__(self) -> AsyncGenerator[Self]:
         async with create_task_group() as self._task_group:
-            self._task_group.start_soon(self._connect_ws)
+            await self._task_group.start(self._connect_ws)
             yield self
             self._task_group.cancel_scope.cancel()
 

@@ -1,1 +1,3 @@
-# Wire for communicating over memory
+# wire-memory
+
+Wire for communicating over memory.

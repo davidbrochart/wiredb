@@ -8,12 +8,13 @@ from wiredb import Room, RoomManager, bind, connect
 
 pytestmark = pytest.mark.anyio
 
-async def test_websocket(free_tcp_port: int) -> None:
-    async with bind("websocket", host="localhost", port=free_tcp_port):
+async def test_server(free_tcp_port: int) -> None:
+    async with bind("websocket", host="localhost", port=free_tcp_port) as server:
         async with (
             connect("websocket", host="http://localhost", port=free_tcp_port) as client0,
             connect("websocket", host="http://localhost", port=free_tcp_port) as client1,
         ):
+            assert len(server.room_manager._rooms) == 1
             text0 = client0.doc.get("text", type=Text)
             text1 = client1.doc.get("text", type=Text)
             text0 += "Hello"
@@ -28,6 +29,11 @@ async def test_websocket(free_tcp_port: int) -> None:
                     await sleep(0.01)
                     if str(text0) == "Hello, World!":
                         break
+        with fail_after(1):
+            while True:
+                await sleep(0.01)
+                if len(server.room_manager._rooms) == 0:
+                    break
 
 
 async def test_multiple_servers(free_tcp_port_factory):
