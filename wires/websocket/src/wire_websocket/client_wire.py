@@ -1,14 +1,19 @@
 from __future__ import annotations
 
+import sys
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import Self
 
 from anyio import AsyncContextManagerMixin, Lock, create_task_group, get_cancelled_exc_class, sleep_forever
 from httpx_ws import AsyncWebSocketSession, aconnect_ws
 from pycrdt import Doc, Channel
 
 from wiredb import Provider, ClientWire as _ClientWire
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:  # pragma: nocover
+    from typing_extensions import Self
 
 
 class ClientWire(AsyncContextManagerMixin, _ClientWire):
