@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from contextlib import AsyncExitStack
+from collections.abc import AsyncGenerator, Callable
+from contextlib import asynccontextmanager
 from importlib.metadata import entry_points
-from types import TracebackType
+from typing import Self
 
-from anyio import Lock, TASK_STATUS_IGNORED, create_task_group
-from anyio.abc import TaskStatus
+from anyio import AsyncContextManagerMixin, Lock, TASK_STATUS_IGNORED, create_task_group, get_cancelled_exc_class, sleep_forever
+from anyio.abc import TaskGroup, TaskStatus
 from pycrdt import Channel, Doc, YMessageType, create_sync_message, create_update_message, handle_sync_message
 
 
@@ -39,13 +40,31 @@ def bind(wire: str, **kwargs) -> ServerWire:
     return _Wire(**kwargs)
 
 
-class Room:
+class Room(AsyncContextManagerMixin):
     def __init__(self, id: str) -> None:
         self._id = id
         self._doc: Doc = Doc()
         self._clients: set[Channel] = set()
 
-    async def start(self, *, task_status: TaskStatus[None]):
+    @property
+    def id(self) -> str:
+        return self._id
+
+    @property
+    def doc(self) -> Doc:
+        return self._doc
+
+    @property
+    def task_group(self) -> TaskGroup:
+        return self._task_group
+
+    @asynccontextmanager
+    async def __asynccontextmanager__(self) -> AsyncGenerator[Self]:
+        async with create_task_group() as self._task_group:
+            await self._task_group.start(self.run)
+            yield self
+
+    async def run(self, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED):
         async with self._doc.events() as events:
             task_status.started()
             async for event in events:
@@ -55,6 +74,9 @@ class Room:
                     for client in clients:
                         try:
                             await client.send(message)
+                        except get_cancelled_exc_class():  # pragma: nocover
+                            self._clients.discard(client)
+                            raise
                         except BaseException:  # pragma: nocover
                             self._clients.discard(client)
 
@@ -74,38 +96,37 @@ class Room:
                         reply = handle_sync_message(message[1:], self._doc)
                     if reply is not None:
                         await client.send(reply)
-        except BaseException:
+        except get_cancelled_exc_class():
+            raise
+        except BaseException:  # pragma: nocover
+            pass
+        finally:
             if not started:  # pragma: nocover
                 task_status.started()
             self._clients.discard(client)
 
 
-class RoomManager:
-    def __init__(self, room_type: type[Room] = Room) -> None:
-        self._room_type = room_type
+class RoomManager(AsyncContextManagerMixin):
+    def __init__(self, room_factory: Callable[[str], Room] = Room) -> None:
+        self._room_factory = room_factory
         self._rooms: dict[str, Room] = {}
         self._lock = Lock()
 
-    async def __aenter__(self) -> RoomManager:
-        async with AsyncExitStack() as exit_stack:
-            self._task_group = await exit_stack.enter_async_context(create_task_group())
-            self._exit_stack = exit_stack.pop_all()
-        return self
+    @asynccontextmanager
+    async def __asynccontextmanager__(self) -> AsyncGenerator[Self]:
+        async with create_task_group() as self._task_group:
+            yield self
+            self._task_group.cancel_scope.cancel()
 
-    async def __aexit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
-    ) -> bool | None:
-        self._task_group.cancel_scope.cancel()
-        return await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
+    async def _create_room(self, id: str, *, task_status: TaskStatus[Room]):
+        async with self._room_factory(id) as room:
+            task_status.started(room)
+            await sleep_forever()
 
     async def get_room(self, id: str) -> Room:
         async with self._lock:
             if id not in self._rooms:
-                room = self._room_type(id)
-                await self._task_group.start(room.start)
+                room = await self._task_group.start(self._create_room, id)
                 self._rooms[id] = room
             else:
                 room = self._rooms[id]

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from contextlib import AsyncExitStack
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from importlib.metadata import entry_points
+from typing import Self
 
-from anyio import Event, TASK_STATUS_IGNORED, create_task_group
+from anyio import AsyncContextManagerMixin, Event, TASK_STATUS_IGNORED, create_task_group
 from anyio.abc import TaskStatus
 from pycrdt import Channel, Doc, YMessageType, YSyncMessageType, create_sync_message, create_update_message, handle_sync_message
 
@@ -33,7 +35,7 @@ def connect(wire: str, *, id: str = "", doc: Doc | None = None, **kwargs) -> Cli
     return _Wire(id, doc, **kwargs)
 
 
-class Provider:
+class Provider(AsyncContextManagerMixin):
     def __init__(self, doc: Doc, channel: Channel) -> None:
         self._doc = doc
         self._channel = channel
@@ -60,14 +62,10 @@ class Provider:
                 message = create_update_message(event.update)
                 await self._channel.send(message)
 
-    async def __aenter__(self) -> Provider:
-        async with AsyncExitStack() as exit_stack:
-            self._task_group = await exit_stack.enter_async_context(create_task_group())
+    @asynccontextmanager
+    async def __asynccontextmanager__(self) -> AsyncGenerator[Self]:
+        async with create_task_group() as self._task_group:
             self._task_group.start_soon(self._run)
             await self._ready.wait()
-            self._exit_stack = exit_stack.pop_all()
-        return self
-
-    async def __aexit__(self, exc_type, exc_value, exc_tb) -> bool | None:
-        self._task_group.cancel_scope.cancel()
-        return await self._exit_stack.__aexit__(exc_type, exc_value, exc_tb)
+            yield self
+            self._task_group.cancel_scope.cancel()
