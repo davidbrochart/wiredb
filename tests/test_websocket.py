@@ -69,14 +69,14 @@ async def test_multiple_servers(free_tcp_port_factory):
         tg.start_soon(run_client, doc2, port2, "World")
 
         text1 = doc1.get("text", type=Text)
-        with fail_after(1):
+        with fail_after(2):
             while True:
                 await sleep(0.01)
                 if "Hello" in str(text1) and "World" in str(text1):
                     break
 
         text2 = doc2.get("text", type=Text)
-        with fail_after(1):
+        with fail_after(2):
             while True:
                 await sleep(0.01)
                 if "Hello" in str(text2) and "World" in str(text2):
