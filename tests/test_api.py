@@ -5,7 +5,7 @@ from wiredb import bind, connect
 
 pytestmark = pytest.mark.anyio
 
-async def test_server_not_found():
+async def test_server_not_found() -> None:
     with pytest.raises(RuntimeError) as excinfo:
         async with bind("foo"):
             pass  # pragma: nocover
@@ -13,7 +13,7 @@ async def test_server_not_found():
     assert str(excinfo.value) == 'No server found for "foo", did you forget to install "wire-foo"?'
 
 
-async def test_client_not_found():
+async def test_client_not_found() -> None:
     with pytest.raises(RuntimeError) as excinfo:
         async with connect("foo"):
             pass  # pragma: nocover
