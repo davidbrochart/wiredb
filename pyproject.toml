@@ -44,6 +44,12 @@ test = [
   "coverage",
 ]
 
+[project.optional-dependencies]
+memory = ["wire-memory >=0.2.1,<0.3.0"]
+pipe = ["wire-pipe >=0.2.1,<0.3.0"]
+websocket = ["wire-websocket >=0.2.1,<0.3.0"]
+file = ["wire-file >=0.2.1,<0.3.0"]
+
 [project.urls]
 Homepage = "https://github.com/davidbrochart/wiredb"
 
@@ -54,6 +60,7 @@ module-name = "wiredb"
 members = ["wires/*"]
 
 [tool.uv.sources]
+wiredb = { workspace = true }
 wire-memory = { workspace = true }
 wire-pipe = { workspace = true }
 wire-websocket = { workspace = true }
