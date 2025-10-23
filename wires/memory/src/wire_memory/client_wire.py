@@ -20,8 +20,8 @@ class ClientWire(_ClientWire):
             _send_stream, _receive_stream = await self._server.connect(self._id)
             send_stream = await exit_stack.enter_async_context(_send_stream)
             receive_stream = await exit_stack.enter_async_context(_receive_stream)
-            channel = Memory(send_stream, receive_stream, self._id)
-            await exit_stack.enter_async_context(Provider(self._doc, channel))
+            self.channel = Memory(send_stream, receive_stream, self._id)
+            await exit_stack.enter_async_context(Provider(self._doc, self.channel))
             self._exit_stack = exit_stack.pop_all()
         return self
 

@@ -23,36 +23,30 @@ jobs:
         python-version: [ '3.10', '3.11', '3.12', '3.13', '3.14' ]
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          activate-environment: "true"
+      - name: Install wiredb and wires
+        run: |
+          uv venv
+          uv pip install -e ".[memory,pipe,websocket,file]" --group test
 
-    - uses: actions/setup-python@v6
-      with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
+      - name: Check types
+        run: |
+          mypy src wires tests
 
-    - name: Install wiredb and wires
-      run: |
-        pip install . --group test
-        pip install wires/memory
-        pip install wires/pipe
-        pip install wires/websocket
-        pip install wires/file
+      - name: Lint
+        run: |
+          ruff check src wires tests
 
-    - name: Check types
-      run: |
-        mypy src wires tests
+      - name: Run tests
+        if: ${{ !((matrix.python-version == '3.14') && (matrix.os == 'ubuntu')) }}
+        run: pytest -v --color=yes
 
-    - name: Lint
-      run: |
-        ruff check src wires tests
-
-    - name: Run tests
-      if: ${{ !((matrix.python-version == '3.14') && (matrix.os == 'ubuntu')) }}
-      run: pytest -v --color=yes
-
-    - name: Run code coverage
-      if: ${{ (matrix.python-version == '3.14') && (matrix.os == 'ubuntu') }}
-      run: |
-        coverage run -m pytest tests
-        coverage report --show-missing --fail-under=100
+      - name: Run code coverage
+        if: ${{ (matrix.python-version == '3.14') && (matrix.os == 'ubuntu') }}
+        run: |
+          coverage run -m pytest tests
+          coverage report --show-missing --fail-under=100
