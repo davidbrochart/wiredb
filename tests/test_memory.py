@@ -7,7 +7,7 @@ from wiredb import bind, connect
 
 pytestmark = pytest.mark.anyio
 
-async def test_memory():
+async def test_memory() -> None:
     async with bind("memory") as server:
         async with (
             connect("memory", server=server) as client0,

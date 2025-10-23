@@ -1,4 +1,7 @@
+from collections.abc import Callable
+
 import pytest
+
 from anyio import TASK_STATUS_IGNORED, create_task_group, fail_after, sleep, sleep_forever
 from anyio.abc import TaskStatus
 from pycrdt import Doc, Text
@@ -36,7 +39,7 @@ async def test_server(free_tcp_port: int) -> None:
                     break
 
 
-async def test_multiple_servers(free_tcp_port_factory):
+async def test_multiple_servers(free_tcp_port_factory: Callable[[], int]) -> None:
     port0 = free_tcp_port_factory()
     port1 = free_tcp_port_factory()
     port2 = free_tcp_port_factory()
@@ -46,12 +49,12 @@ async def test_multiple_servers(free_tcp_port_factory):
             await self.task_group.start(self._connect_to_server)
             await super().run(*args, **kwargs)
 
-        async def _connect_to_server(self, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED):
+        async def _connect_to_server(self, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED) -> None:
             async with connect("websocket", id=self.id, doc=self.doc, host="http://localhost", port=port0):
                 task_status.started()
                 await sleep_forever()
 
-    async def run_server(port: int, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED):
+    async def run_server(port: int, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED) -> None:
         server = bind("websocket", host="localhost", port=port)
         if port != port0:
             server.room_manager = RoomManager(room_factory=MyRoom)
@@ -59,7 +62,7 @@ async def test_multiple_servers(free_tcp_port_factory):
             task_status.started()
             await sleep_forever()
 
-    async def run_client(doc, port, message):
+    async def run_client(doc: Doc, port: int, message: str) -> None:
         async with connect("websocket", doc=doc, host="http://localhost", port=port):
             text = doc.get("text", type=Text)
             text += message
@@ -69,8 +72,8 @@ async def test_multiple_servers(free_tcp_port_factory):
         await tg.start(run_server, port0)
         await tg.start(run_server, port1)
         await tg.start(run_server, port2)
-        doc1 = Doc()
-        doc2 = Doc()
+        doc1: Doc = Doc()
+        doc2: Doc = Doc()
         tg.start_soon(run_client, doc1, port1, "Hello")
         tg.start_soon(run_client, doc2, port2, "World")
 

@@ -1,59 +1,69 @@
 from __future__ import annotations
 
-from contextlib import AsyncExitStack
+import sys
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from pathlib import Path
-from types import TracebackType
 
 import anyio
-from anyio import CancelScope, TASK_STATUS_IGNORED, create_memory_object_stream, create_task_group, open_file, sleep
+from anyio import AsyncContextManagerMixin, CancelScope, TASK_STATUS_IGNORED, create_memory_object_stream, create_task_group, open_file, sleep
 from anyio.abc import TaskGroup, TaskStatus
 from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 from pycrdt import Channel, Decoder, Doc, YMessageType, YSyncMessageType, create_sync_message, handle_sync_message
 
 from wiredb import Provider, ClientWire as _ClientWire
 
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:  # pragma: nocover
+    from typing_extensions import Self
 
-class ClientWire(_ClientWire):
-    def __init__(self, id: str, doc: Doc | None = None, *, path: Path | str, write_delay: float = 0) -> None:
+
+class ClientWire(AsyncContextManagerMixin, _ClientWire):
+    def __init__(
+        self,
+        id: str,
+        doc: Doc | None = None,
+        *,
+        path: Path | str,
+        write_delay: float = 0,
+        version: str = "0.0.0",
+    ) -> None:
         super().__init__(doc)
         self._id = id
         self._path: anyio.Path = anyio.Path(path)
         self._write_delay = write_delay
+        self._version = version
 
-    async def __aenter__(self) -> ClientWire:
-        async with AsyncExitStack() as exit_stack:
-            file_doc: Doc = Doc()
-            if await self._path.exists():
-                updates = await self._path.read_bytes()
-                decoder = Decoder(updates)
-                while True:
-                    update = decoder.read_message()
-                    if not update:
-                        break
-                    file_doc.apply_update(update)
-            async with file_doc.new_transaction():
-                sync_message = create_sync_message(file_doc)
-            self._file = await exit_stack.enter_async_context(
-                await open_file(self._path, mode="ab", buffering=0)
-            )
+    @asynccontextmanager
+    async def __asynccontextmanager__(self) -> AsyncGenerator[Self]:
+        file_doc: Doc = Doc()
+        if file_exists := await self._path.exists():
+            data = await self._path.read_bytes()
+            i = data.find(0)
+            file_version = data[:i].decode()
+            if file_version != self._version:
+                raise RuntimeError(f'File version mismatch (got "{file_version}", expected "{self._version}")')
+            updates = data[i + 1:]
+            decoder = Decoder(updates)
+            while True:
+                update = decoder.read_message()
+                if not update:
+                    break
+                file_doc.apply_update(update)
+        async with file_doc.new_transaction():
+            sync_message = create_sync_message(file_doc)
+        async with await open_file(self._path, mode="ab", buffering=0) as self._file:
+            if not file_exists:
+                with CancelScope(shield=True):
+                    await self._file.write(self._version.encode() + bytes([0]))
             send_stream, receive_stream = create_memory_object_stream[bytes](max_buffer_size=float("inf"))
-            send_stream = await exit_stack.enter_async_context(send_stream)
-            await send_stream.send(sync_message)
-            receive_stream = await exit_stack.enter_async_context(receive_stream)
-            self._task_group = await exit_stack.enter_async_context(create_task_group())
-            channel = File(self._file, self._id, file_doc, send_stream, receive_stream, self._task_group, self._write_delay)
-            await exit_stack.enter_async_context(Provider(self._doc, channel))
-            self._exit_stack = exit_stack.pop_all()
-        return self
-
-    async def __aexit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
-    ) -> bool | None:
-        self._task_group.cancel_scope.cancel()
-        return await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
+            async with send_stream, receive_stream, create_task_group() as tg:
+                await send_stream.send(sync_message)
+                channel = File(self._file, self._id, file_doc, send_stream, receive_stream, tg, self._write_delay)
+                async with Provider(self._doc, channel):
+                    yield self
+                    tg.cancel_scope.cancel()
 
 
 class File(Channel):
