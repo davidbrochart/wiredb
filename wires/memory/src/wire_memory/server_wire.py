@@ -48,6 +48,8 @@ class Memory(Channel):
         self.receive_stream = receive_stream
         self._path = path
         self._send_lock = Lock()
+        self.send_nb = 0
+        self.receive_nb = 0
 
     async def __anext__(self) -> bytes:
         try:
@@ -64,7 +66,9 @@ class Memory(Channel):
     async def send(self, message: bytes):
         async with self._send_lock:
             await self.send_stream.send(message)
+            self.send_nb += 1
 
     async def recv(self) -> bytes:
         message = await self.receive_stream.receive()
+        self.receive_nb += 1
         return message
