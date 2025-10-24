@@ -1,5 +1,10 @@
 # Version history
 
+## 0.3.0
+
+- Support squashing file updates.
+- Add file versioning.
+
 ## 0.2.1
 
 - Clean room when clients leave.
