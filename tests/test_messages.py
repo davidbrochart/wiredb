@@ -2,7 +2,7 @@ from contextlib import AsyncExitStack
 from typing import cast
 
 import pytest
-from anyio import sleep
+from anyio import wait_all_tasks_blocked
 from pycrdt import Text
 
 from wiredb import bind, connect
@@ -19,7 +19,7 @@ async def test_messages(client_nb: int) -> None:
             for client in clients:
                 text = client.doc.get("text", type=Text)
                 text += "Hello"
-            await sleep(0.1)
+            await wait_all_tasks_blocked()
             for client in clients:
                 client = cast(ClientWire, client)
                 assert client.channel.send_nb == client_nb + 2
