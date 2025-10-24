@@ -1,10 +1,12 @@
 from contextlib import AsyncExitStack
+from typing import cast
 
 import pytest
 from anyio import sleep
 from pycrdt import Text
 
 from wiredb import bind, connect
+from wire_memory.client_wire import ClientWire
 
 
 pytestmark = pytest.mark.anyio
@@ -19,5 +21,6 @@ async def test_messages(client_nb: int) -> None:
                 text += "Hello"
             await sleep(0.1)
             for client in clients:
-                assert client.channel.send_nb == client_nb + 2  # type: ignore[attr-defined]
-                assert client.channel.receive_nb == client_nb + 2  # type: ignore[attr-defined]
+                client = cast(ClientWire, client)
+                assert client.channel.send_nb == client_nb + 2
+                assert client.channel.receive_nb == client_nb + 2

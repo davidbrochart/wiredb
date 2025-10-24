@@ -9,7 +9,7 @@ import anyio
 from anyio import AsyncContextManagerMixin, CancelScope, TASK_STATUS_IGNORED, create_memory_object_stream, create_task_group, open_file, sleep
 from anyio.abc import TaskGroup, TaskStatus
 from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
-from pycrdt import Channel, Decoder, Doc, YMessageType, YSyncMessageType, create_sync_message, handle_sync_message
+from pycrdt import Channel, Decoder, Doc, YMessageType, YSyncMessageType, create_sync_message, handle_sync_message, write_message
 
 from wiredb import Provider, ClientWire as _ClientWire
 
@@ -27,25 +27,34 @@ class ClientWire(AsyncContextManagerMixin, _ClientWire):
         *,
         path: Path | str,
         write_delay: float = 0,
-        version: str = "0.0.0",
+        squash: bool = False,
     ) -> None:
         super().__init__(doc)
         self._id = id
         self._path: anyio.Path = anyio.Path(path)
         self._write_delay = write_delay
-        self._version = version
+        self._version = "0.0.1"
+        self._squash = squash
+
+    @property
+    def version(self) -> str:
+        return self._version
+
+    async def _read_file(self) -> tuple[str, bytes]:
+        data = await self._path.read_bytes()
+        version, messages = data.split(bytes([0]), 1)
+        return version.decode(), messages
 
     @asynccontextmanager
     async def __asynccontextmanager__(self) -> AsyncGenerator[Self]:
         file_doc: Doc = Doc()
+        size = len(self._version) + 1
         if file_exists := await self._path.exists():
-            data = await self._path.read_bytes()
-            i = data.find(0)
-            file_version = data[:i].decode()
+            file_version, messages = await self._read_file()
             if file_version != self._version:
                 raise RuntimeError(f'File version mismatch (got "{file_version}", expected "{self._version}")')
-            updates = data[i + 1:]
-            decoder = Decoder(updates)
+            size += len(messages)
+            decoder = Decoder(messages)
             while True:
                 update = decoder.read_message()
                 if not update:
@@ -53,14 +62,16 @@ class ClientWire(AsyncContextManagerMixin, _ClientWire):
                 file_doc.apply_update(update)
         async with file_doc.new_transaction():
             sync_message = create_sync_message(file_doc)
-        async with await open_file(self._path, mode="ab", buffering=0) as self._file:
+        async with await open_file(self._path, mode="a+b", buffering=0) as self._file:
+            if self._squash:
+                await squash(self._file)
             if not file_exists:
                 with CancelScope(shield=True):
                     await self._file.write(self._version.encode() + bytes([0]))
             send_stream, receive_stream = create_memory_object_stream[bytes](max_buffer_size=float("inf"))
             async with send_stream, receive_stream, create_task_group() as tg:
                 await send_stream.send(sync_message)
-                channel = File(self._file, self._id, file_doc, send_stream, receive_stream, tg, self._write_delay)
+                channel = File(self._file, self._id, file_doc, send_stream, receive_stream, tg, self._write_delay, size, self._squash, self._version)
                 async with Provider(self._doc, channel):
                     yield self
                     tg.cancel_scope.cancel()
@@ -76,6 +87,9 @@ class File(Channel):
         receive_stream: MemoryObjectReceiveStream[bytes],
         task_group: TaskGroup,
         write_delay: float,
+        size: int,
+        squash: bool,
+        version: str,
     ) -> None:
         self._file = file
         self._path = path
@@ -83,6 +97,9 @@ class File(Channel):
         self._send_stream = send_stream
         self._receive_stream = receive_stream
         self._write_delay = write_delay
+        self._size = size
+        self._squash = squash
+        self._version = version
         self._task_group = task_group
         self._messages: list[bytes] = []
         self._write_cancel_scope: CancelScope | None = None
@@ -114,6 +131,10 @@ class File(Channel):
                 if reply is not None:
                     await self._send_stream.send(reply)
                 if message[1] == YSyncMessageType.SYNC_STEP2:
+                    update = message[2:]
+                    if update != bytes([2, 0, 0]):
+                        self._messages.append(update)
+                        await self._task_group.start(self._write_updates)
                     self._file_doc = None
 
     async def recv(self) -> bytes:
@@ -124,8 +145,29 @@ class File(Channel):
         with CancelScope() as self._write_cancel_scope:
             task_status.started()
             await sleep(self._write_delay)
-            data = b"".join(self._messages)
-            self._messages.clear()
-            self._write_cancel_scope = None
             with CancelScope(shield=True):
-                await self._file.write(data)
+                messages = b"".join(self._messages)
+                self._messages.clear()
+                self._write_cancel_scope = None
+                self._size += len(messages)
+                await self._file.write(messages)
+                if self._squash:
+                    await squash(self._file)
+
+
+async def squash(file: anyio.AsyncFile[bytes]) -> None:
+    await file.seek(0)
+    data = await file.read()
+    version, messages = data.split(bytes([0]), 1)
+    header_size = len(version) + 1
+    await file.truncate(header_size)
+    file_doc: Doc = Doc()
+    decoder = Decoder(messages)
+    while True:
+        update = decoder.read_message()
+        if not update:
+            break
+        file_doc.apply_update(update)
+    squashed_update = file_doc.get_update()
+    message = write_message(squashed_update)
+    await file.write(message)
