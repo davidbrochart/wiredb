@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 from importlib.metadata import entry_points
+from typing import Any
 
 from anyio import AsyncContextManagerMixin, Event, Lock, TASK_STATUS_IGNORED, create_task_group, get_cancelled_exc_class
 from anyio.abc import TaskGroup, TaskStatus
@@ -16,37 +17,14 @@ else:  # pragma: nocover
     from typing_extensions import Self
 
 
-class ServerWire(ABC):
-    _room_manager: RoomManager | None = None
-
-    @property
-    def room_manager(self) -> RoomManager:
-        if self._room_manager is None:
-            self._room_manager = RoomManager()
-        return self._room_manager
-
-    @room_manager.setter
-    def room_manager(self, value: RoomManager) -> None:
-        self._room_manager = value
-
-    @abstractmethod
-    async def __aenter__(self) -> ServerWire: ...
-
-    @abstractmethod
-    async def __aexit__(self, exc_type, exc_value, exc_tb) -> bool | None: ...
-
-
-def bind(wire: str, **kwargs) -> ServerWire:
-    eps = entry_points(group="wires")
-    try:
-        _Wire = eps[f"{wire}_server"].load()
-    except KeyError:
-        raise RuntimeError(f'No server found for "{wire}", did you forget to install "wire-{wire}"?')
-    return _Wire(**kwargs)
-
-
 class Room(AsyncContextManagerMixin):
     def __init__(self, id: str) -> None:
+        """
+        Creates a new room in which clients with the same ID will be connected.
+
+        Args:
+            id: The room ID.
+        """
         self._id = id
         self._doc: Doc = Doc()
         self._clients: set[Channel] = set()
@@ -54,14 +32,26 @@ class Room(AsyncContextManagerMixin):
 
     @property
     def id(self) -> str:
+        """
+        Returns:
+            The room ID.
+        """
         return self._id
 
     @property
     def doc(self) -> Doc:
+        """
+        Returns:
+            The room's shared document.
+        """
         return self._doc
 
     @property
     def task_group(self) -> TaskGroup:
+        """
+        Returns:
+            The room's task group, that can be used to launch background tasks.
+        """
         return self._task_group
 
     @asynccontextmanager
@@ -70,7 +60,14 @@ class Room(AsyncContextManagerMixin):
             await self._task_group.start(self.run)
             yield self
 
-    async def run(self, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED):
+    async def run(self, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED) -> None:
+        """
+        The main background task which is responsible for forwarding every update
+        from a client to all other clients in the room.
+
+        Args:
+            task_status: The task status that is set when the task has started.
+        """
         async with self._doc.events() as events:
             task_status.started()
             async for event in events:
@@ -86,7 +83,14 @@ class Room(AsyncContextManagerMixin):
                         except BaseException:  # pragma: nocover
                             self._remove_client(client)
 
-    async def serve(self, client: Channel, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED):
+    async def serve(self, client: Channel, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED) -> None:
+        """
+        The handler for a client which is responsible for the connection handshake and for applying the client updates to the room's shared document.
+
+        Args:
+            client: The client making the connection.
+            task_status: The task status that is set when the task has started.
+        """
         self._clients.add(client)
         started = False
         try:
@@ -143,3 +147,43 @@ class RoomManager(AsyncContextManagerMixin):
             else:
                 room = self._rooms[id]
         return room
+
+
+class ServerWire(ABC):
+    def __init__(self, room_factory: Callable[[str], Room] = Room) -> None:
+        self._room_manager = RoomManager(room_factory)
+
+    @property
+    def room_manager(self) -> RoomManager:
+        return self._room_manager
+
+    @abstractmethod
+    async def __aenter__(self) -> ServerWire: ...
+
+    @abstractmethod
+    async def __aexit__(self, exc_type, exc_value, exc_tb) -> bool | None: ...
+
+
+def bind(wire: str, room_factory: Callable[[str], Room] = Room, **kwargs: Any) -> ServerWire:
+    """
+    Creates a server using a `wire`, and its specific arguments. The server must always
+    be used with an async context manager, for instance:
+    ```py
+    async with bind("websocket", host="localhost", port=8000) as server:
+        ...
+    ```
+
+    Args:
+        wire: The wire used to accept connections.
+        room_factory: An optional callable used to create a room.
+        kwargs: The arguments that are specific to the wire.
+
+    Returns:
+        The created server.
+    """
+    eps = entry_points(group="wires")
+    try:
+        _Wire = eps[f"{wire}_server"].load()
+    except KeyError:
+        raise RuntimeError(f'No server found for "{wire}", did you forget to install "wire-{wire}"?')
+    return _Wire(room_factory=room_factory, **kwargs)

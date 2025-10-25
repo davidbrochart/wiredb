@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 from contextlib import AsyncExitStack
 from functools import partial
 from types import TracebackType
@@ -9,7 +10,7 @@ from anyio import Lock, create_memory_object_stream, create_task_group, from_thr
 from anyio.streams.buffered import BufferedByteReceiveStream
 from pycrdt import Channel
 
-from wiredb import ServerWire as _ServerWire
+from wiredb import Room, ServerWire as _ServerWire
 
 SEPARATOR = bytes([226, 164, 131, 121, 240, 77, 100, 52])
 STOP = bytes([80, 131, 218, 244, 198, 47, 146, 214])
@@ -17,11 +18,14 @@ MAX_RECEIVE_BYTE_NB = 2 ** 16
 
 
 class ServerWire(_ServerWire):
+    def __init__(self, room_factory: Callable[[str], Room] = Room) -> None:
+        super().__init__(room_factory=room_factory)
+
     async def __aenter__(self) -> ServerWire:
         async with AsyncExitStack() as exit_stack:
             self._self_senders: list[int] = []
             self._task_group = await exit_stack.enter_async_context(create_task_group())
-            self.room_manager = await exit_stack.enter_async_context(self.room_manager)
+            await exit_stack.enter_async_context(self.room_manager)
             self._exit_stack = exit_stack.pop_all()
         return self
 

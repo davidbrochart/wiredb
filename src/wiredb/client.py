@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from importlib.metadata import entry_points
+from typing import Any
 
 from anyio import AsyncContextManagerMixin, Event, TASK_STATUS_IGNORED, create_task_group
 from anyio.abc import TaskStatus
@@ -14,30 +15,6 @@ if sys.version_info >= (3, 11):
     from typing import Self
 else:  # pragma: nocover
     from typing_extensions import Self
-
-
-class ClientWire(ABC):
-    def __init__(self, doc: Doc | None = None) -> None:
-        self._doc: Doc = Doc() if doc is None else doc
-
-    @property
-    def doc(self) -> Doc:
-        return self._doc
-
-    @abstractmethod
-    async def __aenter__(self) -> ClientWire: ...
-
-    @abstractmethod
-    async def __aexit__(self, exc_type, exc_value, exc_tb) -> bool | None: ...
-
-
-def connect(wire: str, *, id: str = "", doc: Doc | None = None, **kwargs) -> ClientWire:
-    eps = entry_points(group="wires")
-    try:
-        _Wire = eps[f"{wire}_client"].load()
-    except KeyError:
-        raise RuntimeError(f'No client found for "{wire}", did you forget to install "wire-{wire}"?')
-    return _Wire(id, doc, **kwargs)
 
 
 class Provider(AsyncContextManagerMixin):
@@ -74,3 +51,44 @@ class Provider(AsyncContextManagerMixin):
             await self._ready.wait()
             yield self
             self._task_group.cancel_scope.cancel()
+
+
+class ClientWire(ABC):
+    def __init__(self, doc: Doc | None = None) -> None:
+        self._doc: Doc = Doc() if doc is None else doc
+
+    @property
+    def doc(self) -> Doc:
+        return self._doc
+
+    @abstractmethod
+    async def __aenter__(self) -> ClientWire: ...
+
+    @abstractmethod
+    async def __aexit__(self, exc_type, exc_value, exc_tb) -> bool | None: ...
+
+
+def connect(wire: str, *, id: str = "", doc: Doc | None = None, **kwargs: Any) -> ClientWire:
+    """
+    Creates a client using a `wire`, and its specific arguments. The client must always
+    be used with an async context manager, for instance:
+    ```py
+    async with connect("websocket", host="localhost", port=8000) as client:
+        ...
+    ```
+
+    Args:
+        wire: The wire used to connect.
+        id: The ID of the room to connect to in the server.
+        doc: An optional external shared document (or a new one will be created).
+        kwargs: The arguments that are specific to the wire.
+
+    Returns:
+        The created client.
+    """
+    eps = entry_points(group="wires")
+    try:
+        _Wire = eps[f"{wire}_client"].load()
+    except KeyError:
+        raise RuntimeError(f'No client found for "{wire}", did you forget to install "wire-{wire}"?')
+    return _Wire(id, doc, **kwargs)
