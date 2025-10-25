@@ -6,7 +6,7 @@ from anyio import TASK_STATUS_IGNORED, create_task_group, fail_after, sleep, sle
 from anyio.abc import TaskStatus
 from pycrdt import Doc, Text
 
-from wiredb import Room, RoomManager, bind, connect
+from wiredb import Room, bind, connect
 
 
 pytestmark = pytest.mark.anyio
@@ -55,9 +55,10 @@ async def test_multiple_servers(free_tcp_port_factory: Callable[[], int]) -> Non
                 await sleep_forever()
 
     async def run_server(port: int, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED) -> None:
-        server = bind("websocket", host="localhost", port=port)
         if port != port0:
-            server.room_manager = RoomManager(room_factory=MyRoom)
+            server = bind("websocket", room_factory=MyRoom, host="localhost", port=port)
+        else:
+            server = bind("websocket", host="localhost", port=port)
         async with server:
             task_status.started()
             await sleep_forever()

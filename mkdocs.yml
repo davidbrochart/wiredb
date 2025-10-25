@@ -1,0 +1,51 @@
+site_name: wiredb
+site_description: Distributed database based on CRDTs
+repo_url: https://github.com/davidbrochart/wiredb
+
+theme:
+  name: 'material'
+  palette:
+    - scheme: default
+      primary: 'black'
+      accent: 'black'
+      toggle:
+          icon: material/lightbulb-outline
+          name: Switch to dark mode
+    - scheme: slate
+      primary: 'black'
+      accent: 'black'
+      toggle:
+          icon: material/lightbulb
+          name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.top
+    - navigation.sections
+    - search.suggest
+    - search.highlight
+    - content.code.annotate
+    - content.code.copy
+
+nav:
+- Overview: index.md
+- install.md
+- usage.md
+- api_reference.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+
+plugins:
+- search
+- mkdocstrings:
+    default_handler: python
+    handlers:
+      python:
+        options:
+          show_source: false
+          docstring_style: google
+          find_stubs_package: true
+          docstring_options:
+            ignore_init_summary: false

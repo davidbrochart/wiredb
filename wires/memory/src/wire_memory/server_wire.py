@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from contextlib import AsyncExitStack
 from types import TracebackType
 
@@ -11,10 +12,13 @@ from wiredb import Room, ServerWire as _ServerWire
 
 
 class ServerWire(_ServerWire):
+    def __init__(self, room_factory: Callable[[str], Room] = Room) -> None:
+        super().__init__(room_factory=room_factory)
+
     async def __aenter__(self) -> ServerWire:
         async with AsyncExitStack() as exit_stack:
             self._task_group = await exit_stack.enter_async_context(create_task_group())
-            self.room_manager = await exit_stack.enter_async_context(self.room_manager)
+            await exit_stack.enter_async_context(self.room_manager)
             self._exit_stack = exit_stack.pop_all()
         return self
 
