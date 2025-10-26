@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "wiredb"
-version = "0.3.0"
+version = "0.4.0"
 description = "WireDB"
 license = { file = "LICENSE" }
 authors = [
@@ -50,10 +50,10 @@ docs = [
 ]
 
 [project.optional-dependencies]
-memory = ["wire-memory >=0.2.2,<0.3.0"]
-pipe = ["wire-pipe >=0.2.1,<0.3.0"]
-websocket = ["wire-websocket >=0.2.1,<0.3.0"]
-file = ["wire-file >=0.3.0,<0.4.0"]
+memory = ["wire-memory >=0.3.0,<0.4.0"]
+pipe = ["wire-pipe >=0.4.0,<0.5.0"]
+websocket = ["wire-websocket >=0.3.0,<0.4.0"]
+file = ["wire-file >=0.3.1,<0.4.0"]
 
 [project.urls]
 Homepage = "https://github.com/davidbrochart/wiredb"

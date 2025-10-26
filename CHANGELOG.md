@@ -1,5 +1,10 @@
 # Version history
 
+## 0.4.0
+
+- Add `room_factory` parameter to `bind`.
+- Add documentation.
+
 ## 0.3.0
 
 - Support squashing file updates.

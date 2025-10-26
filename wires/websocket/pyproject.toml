@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "wire_websocket"
-version = "0.2.1"
+version = "0.3.0"
 description = "Wire for communicating over WebSocket"
 license = { file = "LICENSE" }
 authors = [
@@ -29,7 +29,7 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-  "wiredb >=0.2.0,<0.3.0",
+  "wiredb >=0.4.0,<0.5.0",
   "httpx_ws >=0.8.0",
   "anycorn >=0.18.2",
 ]
