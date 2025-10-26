@@ -46,7 +46,7 @@ from anyio import sleep_forever
 from wiredb import Room
 
 class MyRoom(Room):
-    async def run(self, *args, **kwargs)e:
+    async def run(self, *args, **kwargs):
         await self.task_group.start(self.connect_to_file)
         await super().run(*args, **kwargs)
 
