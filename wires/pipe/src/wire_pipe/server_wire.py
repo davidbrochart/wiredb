@@ -8,9 +8,8 @@ from types import TracebackType
 
 from anyio import Lock, create_memory_object_stream, create_task_group, from_thread, to_thread
 from anyio.streams.buffered import BufferedByteReceiveStream
-from pycrdt import Channel
 
-from wiredb import Room, ServerWire as _ServerWire
+from wiredb import Channel, Room, ServerWire as _ServerWire
 
 SEPARATOR = bytes([226, 164, 131, 121, 240, 77, 100, 52])
 STOP = bytes([80, 131, 218, 244, 198, 47, 146, 214])
@@ -72,7 +71,7 @@ class Pipe(Channel):
 
     async def __anext__(self) -> bytes:
         try:
-            message = await self.recv()
+            message = await self.arecv()
         except Exception:
             raise StopAsyncIteration()  # pragma: nocover
 
@@ -82,7 +81,7 @@ class Pipe(Channel):
     def path(self) -> str:
         return self._path  # pragma: nocover
 
-    async def send(self, message: bytes):
+    async def asend(self, message: bytes):
         msg = message + SEPARATOR
         nb = 0
         while nb != len(msg):
@@ -96,5 +95,5 @@ class Pipe(Channel):
                 return
             from_thread.run_sync(self._send_stream.send_nowait, message)
 
-    async def recv(self) -> bytes:
+    async def arecv(self) -> bytes:
         return await self._buffered_stream.receive_until(SEPARATOR, MAX_RECEIVE_BYTE_NB)

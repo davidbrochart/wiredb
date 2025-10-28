@@ -6,8 +6,7 @@ from types import TracebackType
 
 from anyio import Event, create_task_group
 from anycorn import Config, serve
-from pycrdt import Channel
-from wiredb import Room, ServerWire as _ServerWire
+from wiredb import Channel, Room, ServerWire as _ServerWire
 
 from .asgi_server import ASGIServer
 

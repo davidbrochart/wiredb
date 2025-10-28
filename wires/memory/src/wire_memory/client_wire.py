@@ -4,7 +4,7 @@ from contextlib import AsyncExitStack
 from types import TracebackType
 
 from pycrdt import Doc
-from wiredb import Provider, ClientWire as _ClientWire
+from wiredb import ClientWire as _ClientWire
 
 from .server_wire import Memory, ServerWire
 
@@ -21,8 +21,9 @@ class ClientWire(_ClientWire):
             send_stream = await exit_stack.enter_async_context(_send_stream)
             receive_stream = await exit_stack.enter_async_context(_receive_stream)
             self.channel = Memory(send_stream, receive_stream, self._id)
-            await exit_stack.enter_async_context(Provider(self))
-            self._exit_stack = exit_stack.pop_all()
+            await super().__aenter__()
+            exit_stack.push_async_exit(super().__aexit__)
+            self._exit_stack0 = exit_stack.pop_all()
         return self
 
     async def __aexit__(
@@ -31,4 +32,4 @@ class ClientWire(_ClientWire):
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> bool | None:
-        return await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
+        return await self._exit_stack0.__aexit__(exc_type, exc_val, exc_tb)

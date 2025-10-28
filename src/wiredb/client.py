@@ -1,72 +1,24 @@
 from __future__ import annotations
 
 import sys
-from abc import ABC, abstractmethod
-from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack
 from importlib.metadata import entry_points
+from types import TracebackType
 from typing import Any
 
-from anyio import AsyncContextManagerMixin, Event, TASK_STATUS_IGNORED, create_task_group
+from anyio import Event, TASK_STATUS_IGNORED, create_task_group
 from anyio.abc import TaskStatus
-from pycrdt import Channel, Doc, YMessageType, YSyncMessageType, create_sync_message, create_update_message, handle_sync_message
+from pycrdt import Doc, TransactionEvent, YMessageType, YSyncMessageType, create_sync_message, create_update_message, handle_sync_message
+
+from .channel import Channel
 
 if sys.version_info >= (3, 11):
-    from typing import Self
+    pass
 else:  # pragma: nocover
-    from typing_extensions import Self
+    pass
 
 
-class Provider(AsyncContextManagerMixin):
-    def __init__(self, wire: ClientWire) -> None:
-        self._wire = wire
-        self._doc = wire._doc
-        self._channel = wire.channel
-        self._ready = Event()
-
-    async def _run(self):
-        if not self._wire._auto_update:
-            self._ready.set()
-        await self._wire._wait_pull()
-        self._wire._handshaking = True
-        async with self._doc.new_transaction():
-            sync_message = create_sync_message(self._doc)
-        await self._channel.send(sync_message)
-        async for message in self._channel:
-            if message[0] == YMessageType.SYNC:
-                await self._wire._wait_pull()
-                async with self._doc.new_transaction():
-                    reply = handle_sync_message(message[1:], self._doc)
-                if reply is not None:
-                    await self._channel.send(reply)
-                if message[1] == YSyncMessageType.SYNC_STEP2:
-                    await self._task_group.start(self._send_updates)
-                    self._wire._handshaking = False
-
-    async def _send_updates(self, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED):
-        async with self._doc.events() as events:
-            self._ready.set()
-            task_status.started()
-            update_nb = 0
-            async for event in events:
-                if update_nb == 0:
-                    await self._wire._wait_push()
-                    update_nb = events.statistics().current_buffer_used
-                else:
-                    update_nb -= 1
-                message = create_update_message(event.update)
-                await self._channel.send(message)
-
-    @asynccontextmanager
-    async def __asynccontextmanager__(self) -> AsyncGenerator[Self]:
-        async with create_task_group() as self._task_group:
-            self._task_group.start_soon(self._run)
-            await self._ready.wait()
-            yield self
-            self._task_group.cancel_scope.cancel()
-
-
-class ClientWire(ABC):
+class ClientWire:
     channel: Channel
 
     def __init__(self, doc: Doc | None = None, auto_update: bool = True) -> None:
@@ -75,13 +27,17 @@ class ClientWire(ABC):
         self._pull_event = Event()
         self._push_event = Event()
         self._handshaking = False
+        self._ready = Event()
 
     def pull(self) -> None:
         """
         If the client was created with `auto_update=False`, applies the received updates
         to the shared document.
         """
-        self._pull_event.set()
+        if self._is_async:
+            self._pull_event.set()
+        else:
+            self._pull()
 
     def push(self) -> None:
         """
@@ -109,11 +65,93 @@ class ClientWire(ABC):
     def doc(self) -> Doc:
         return self._doc
 
-    @abstractmethod
-    async def __aenter__(self) -> ClientWire: ...
+    async def _arun(self):
+        if not self._auto_update:
+            self._ready.set()
+        await self._wait_pull()
+        self._handshaking = True
+        async with self._doc.new_transaction():
+            sync_message = create_sync_message(self._doc)
+        await self.channel.asend(sync_message)
+        async for message in self.channel:
+            if message[0] == YMessageType.SYNC:
+                await self._wait_pull()
+                async with self._doc.new_transaction():
+                    reply = handle_sync_message(message[1:], self._doc)
+                if reply is not None:
+                    await self.channel.asend(reply)
+                if message[1] == YSyncMessageType.SYNC_STEP2:
+                    await self._task_group.start(self._send_updates)
+                    self._handshaking = False
 
-    @abstractmethod
-    async def __aexit__(self, exc_type, exc_value, exc_tb) -> bool | None: ...
+    async def _send_updates(self, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED):
+        async with self._doc.events() as events:
+            self._ready.set()
+            task_status.started()
+            update_nb = 0
+            async for event in events:
+                if update_nb == 0:
+                    await self._wait_push()
+                    update_nb = events.statistics().current_buffer_used
+                else:
+                    update_nb -= 1
+                message = create_update_message(event.update)
+                await self.channel.asend(message)
+
+    def _pull(self) -> bool:
+        while True:
+            try:
+                message = self.channel.recv()
+            except Exception:
+                return False
+
+            if message[0] == YMessageType.SYNC:
+                reply = handle_sync_message(message[1:], self._doc)
+                if reply is not None:
+                    self.channel.send(reply)
+                if message[1] == YSyncMessageType.SYNC_STEP2:
+                    return True
+                return False
+
+    def _send_update(self, event: TransactionEvent) -> None:
+        message = create_update_message(event.update)
+        self.channel.send(message)
+
+    def __enter__(self) -> ClientWire:
+        self._is_async = False
+        self.subscription = self._doc.observe(self._send_update)
+        sync_message = create_sync_message(self._doc)
+        self.channel.send(sync_message)
+        while not self._pull():
+            pass
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> bool | None:
+        self._doc.unobserve(self.subscription)
+        return None
+
+    async def __aenter__(self) -> ClientWire:
+        async with AsyncExitStack() as exit_stack:
+            self._is_async = True
+            self._task_group = await exit_stack.enter_async_context(create_task_group())
+            self._task_group.start_soon(self._arun)
+            await self._ready.wait()
+            self._exit_stack = exit_stack.pop_all()
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> bool | None:
+        self._task_group.cancel_scope.cancel()
+        return await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
 
 
 def connect(wire: str, *, id: str = "", doc: Doc | None = None, auto_update: bool = True, **kwargs: Any) -> ClientWire:

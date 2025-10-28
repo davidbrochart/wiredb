@@ -9,7 +9,9 @@ from typing import Any
 
 from anyio import AsyncContextManagerMixin, Event, Lock, TASK_STATUS_IGNORED, create_task_group, get_cancelled_exc_class
 from anyio.abc import TaskGroup, TaskStatus
-from pycrdt import Channel, Doc, YMessageType, create_sync_message, create_update_message, handle_sync_message
+from pycrdt import Doc, YMessageType, create_sync_message, create_update_message, handle_sync_message
+
+from .channel import Channel
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -76,7 +78,7 @@ class Room(AsyncContextManagerMixin):
                     clients = set(self._clients)
                     for client in clients:
                         try:
-                            await client.send(message)
+                            await client.asend(message)
                         except get_cancelled_exc_class():  # pragma: nocover
                             self._remove_client(client)
                             raise
@@ -96,7 +98,7 @@ class Room(AsyncContextManagerMixin):
         try:
             async with self._doc.new_transaction():
                 sync_message = create_sync_message(self._doc)
-            await client.send(sync_message)
+            await client.asend(sync_message)
             task_status.started()
             started = True
             async for message in client:
@@ -105,7 +107,7 @@ class Room(AsyncContextManagerMixin):
                     async with self._doc.new_transaction():
                         reply = handle_sync_message(message[1:], self._doc)
                     if reply is not None:
-                        await client.send(reply)
+                        await client.asend(reply)
         except get_cancelled_exc_class():
             raise
         except BaseException:  # pragma: nocover
