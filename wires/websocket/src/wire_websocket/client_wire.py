@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import sys
-from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from collections.abc import AsyncGenerator, Generator
+from contextlib import asynccontextmanager, contextmanager
 
-from anyio import AsyncContextManagerMixin, Lock, TASK_STATUS_IGNORED, create_task_group, get_cancelled_exc_class, sleep_forever
+from anyio import AsyncContextManagerMixin, ContextManagerMixin, Lock, TASK_STATUS_IGNORED, create_task_group, get_cancelled_exc_class, sleep_forever
 from anyio.abc import TaskStatus
 from httpx import Cookies
 from httpx_ws import AsyncWebSocketSession, aconnect_ws
+from httpx_ws import AsyncWebSocketSession, WebSocketSession, aconnect_ws, connect_ws
 from pycrdt import Doc, Channel
 
 from wiredb import Provider, ClientWire as _ClientWire
@@ -18,7 +19,7 @@ else:  # pragma: nocover
     from typing_extensions import Self
 
 
-class ClientWire(AsyncContextManagerMixin, _ClientWire):
+class ClientWire(AsyncContextManagerMixin, ContextManagerMixin, _ClientWire):
     def __init__(self, id: str, doc: Doc | None = None, auto_update: bool = True, *, host: str, port: int, cookies: Cookies | None = None) -> None:
         super().__init__(doc, auto_update)
         self._id = id
@@ -26,7 +27,16 @@ class ClientWire(AsyncContextManagerMixin, _ClientWire):
         self._port = port
         self._cookies = cookies
 
-    async def _connect_ws(self, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED) -> None:
+    def _connect_ws(self) -> None:
+        ws = connect_ws(
+            f"{self._host}:{self._port}/{self._id}",
+            keepalive_ping_interval_seconds=None,
+        )
+        channel = HttpxWebsocket(ws, self._id)
+        async with Provider(self._doc, channel):
+            await sleep_forever()
+
+    async def _aconnect_ws(self, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED) -> None:
         try:
             ws: AsyncWebSocketSession
             async with aconnect_ws(
@@ -41,10 +51,16 @@ class ClientWire(AsyncContextManagerMixin, _ClientWire):
         except get_cancelled_exc_class():
             pass
 
+    @contextmanager
+    def __contextmanager__(self) -> Generator[Self]:
+        with
+            self._connect_ws()
+            yield self
+
     @asynccontextmanager
     async def __asynccontextmanager__(self) -> AsyncGenerator[Self]:
         async with create_task_group() as self._task_group:
-            await self._task_group.start(self._connect_ws)
+            await self._task_group.start(self._aconnect_ws)
             yield self
             self._task_group.cancel_scope.cancel()
 
