@@ -24,12 +24,13 @@ class ClientWire(AsyncContextManagerMixin, _ClientWire):
         self,
         id: str,
         doc: Doc | None = None,
+        auto_update: bool = True,
         *,
         path: Path | str,
         write_delay: float = 0,
         squash: bool = False,
     ) -> None:
-        super().__init__(doc)
+        super().__init__(doc, auto_update)
         self._id = id
         self._path: anyio.Path = anyio.Path(path)
         self._write_delay = write_delay
@@ -67,8 +68,8 @@ class ClientWire(AsyncContextManagerMixin, _ClientWire):
             send_stream, receive_stream = create_memory_object_stream[bytes](max_buffer_size=float("inf"))
             async with send_stream, receive_stream, create_task_group() as tg:
                 await send_stream.send(sync_message)
-                channel = File(self._file, self._id, file_doc, send_stream, receive_stream, tg, self._write_delay, size, self._squash, self._version, self._lock)
-                async with Provider(self._doc, channel):
+                self.channel = File(self._file, self._id, file_doc, send_stream, receive_stream, tg, self._write_delay, size, self._squash, self._version, self._lock)
+                async with Provider(self):
                     yield self
                     tg.cancel_scope.cancel()
 

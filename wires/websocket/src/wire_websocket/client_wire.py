@@ -18,8 +18,8 @@ else:  # pragma: nocover
 
 
 class ClientWire(AsyncContextManagerMixin, _ClientWire):
-    def __init__(self, id: str, doc: Doc | None = None, *, host: str, port: int) -> None:
-        super().__init__(doc)
+    def __init__(self, id: str, doc: Doc | None = None, auto_update: bool = True, *, host: str, port: int) -> None:
+        super().__init__(doc, auto_update)
         self._id = id
         self._host = host
         self._port = port
@@ -31,8 +31,8 @@ class ClientWire(AsyncContextManagerMixin, _ClientWire):
                 f"{self._host}:{self._port}/{self._id}",
                 keepalive_ping_interval_seconds=None,
             ) as ws:
-                channel = HttpxWebsocket(ws, self._id)
-                async with Provider(self._doc, channel):
+                self.channel = HttpxWebsocket(ws, self._id)
+                async with Provider(self):
                     task_status.started()
                     await sleep_forever()
         except get_cancelled_exc_class():

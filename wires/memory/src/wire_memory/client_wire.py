@@ -10,8 +10,8 @@ from .server_wire import Memory, ServerWire
 
 
 class ClientWire(_ClientWire):
-    def __init__(self, id: str, doc: Doc | None = None, *, server: ServerWire) -> None:
-        super().__init__(doc)
+    def __init__(self, id: str, doc: Doc | None = None, auto_update: bool = True, *, server: ServerWire) -> None:
+        super().__init__(doc, auto_update)
         self._id = id
         self._server = server
 
@@ -21,7 +21,7 @@ class ClientWire(_ClientWire):
             send_stream = await exit_stack.enter_async_context(_send_stream)
             receive_stream = await exit_stack.enter_async_context(_receive_stream)
             self.channel = Memory(send_stream, receive_stream, self._id)
-            await exit_stack.enter_async_context(Provider(self._doc, self.channel))
+            await exit_stack.enter_async_context(Provider(self))
             self._exit_stack = exit_stack.pop_all()
         return self
 

@@ -12,8 +12,8 @@ from .server_wire import STOP, Pipe
 
 
 class ClientWire(_ClientWire):
-    def __init__(self, id: str, doc: Doc | None = None, *, connection) -> None:
-        super().__init__(doc)
+    def __init__(self, id: str, doc: Doc | None = None, auto_update: bool = True, *, connection) -> None:
+        super().__init__(doc, auto_update)
         self._id = id
         self._sender, self._receiver, self._self_sender = connection
 
@@ -21,7 +21,7 @@ class ClientWire(_ClientWire):
         async with AsyncExitStack() as exit_stack:
             tg = await exit_stack.enter_async_context(create_task_group())
             self.channel = Pipe(tg, self._sender, self._receiver, self._id)
-            await exit_stack.enter_async_context(Provider(self._doc, self.channel))
+            await exit_stack.enter_async_context(Provider(self))
             self._exit_stack = exit_stack.pop_all()
         return self
 

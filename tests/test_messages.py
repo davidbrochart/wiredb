@@ -6,7 +6,7 @@ from anyio import wait_all_tasks_blocked
 from pycrdt import Text
 
 from wiredb import bind, connect
-from wire_memory.client_wire import ClientWire
+from wire_memory.server_wire import Memory
 
 
 pytestmark = pytest.mark.anyio
@@ -21,6 +21,6 @@ async def test_messages(client_nb: int) -> None:
                 text += "Hello"
             await wait_all_tasks_blocked()
             for client in clients:
-                client = cast(ClientWire, client)
-                assert client.channel.send_nb == client_nb + 2
-                assert client.channel.receive_nb == client_nb + 2
+                channel = cast(Memory, client.channel)
+                assert channel.send_nb == client_nb + 2
+                assert channel.receive_nb == client_nb + 2
