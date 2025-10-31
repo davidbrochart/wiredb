@@ -1,5 +1,10 @@
 # Version history
 
+## 0.5.0
+
+- Support cookies in `wire-websocket`.
+- Support update push/pull.
+
 ## 0.4.0
 
 - Add `room_factory` parameter to `bind`.
