@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 
 from anyio import AsyncContextManagerMixin, Lock, TASK_STATUS_IGNORED, create_task_group, get_cancelled_exc_class, sleep_forever
 from anyio.abc import TaskStatus
+from httpx import Cookies
 from httpx_ws import AsyncWebSocketSession, aconnect_ws
 from pycrdt import Doc, Channel
 
@@ -18,11 +19,12 @@ else:  # pragma: nocover
 
 
 class ClientWire(AsyncContextManagerMixin, _ClientWire):
-    def __init__(self, id: str, doc: Doc | None = None, auto_update: bool = True, *, host: str, port: int) -> None:
+    def __init__(self, id: str, doc: Doc | None = None, auto_update: bool = True, *, host: str, port: int, cookies: Cookies | None = None) -> None:
         super().__init__(doc, auto_update)
         self._id = id
         self._host = host
         self._port = port
+        self._cookies = cookies
 
     async def _connect_ws(self, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED) -> None:
         try:
@@ -30,6 +32,7 @@ class ClientWire(AsyncContextManagerMixin, _ClientWire):
             async with aconnect_ws(
                 f"{self._host}:{self._port}/{self._id}",
                 keepalive_ping_interval_seconds=None,
+                cookies=self._cookies,
             ) as ws:
                 self.channel = HttpxWebsocket(ws, self._id)
                 async with Provider(self):
