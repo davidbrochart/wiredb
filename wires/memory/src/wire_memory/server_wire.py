@@ -6,9 +6,8 @@ from contextlib import AsyncExitStack
 from types import TracebackType
 
 from anyio import Lock, create_task_group, create_memory_object_stream
-from pycrdt import Channel
 
-from wiredb import Room, ServerWire as _ServerWire
+from wiredb import Channel, Room, ServerWire as _ServerWire
 
 
 class ServerWire(_ServerWire):
@@ -57,7 +56,7 @@ class Memory(Channel):
 
     async def __anext__(self) -> bytes:
         try:
-            message = await self.recv()
+            message = await self.arecv()
         except Exception:
             raise StopAsyncIteration()
 
@@ -67,12 +66,12 @@ class Memory(Channel):
     def path(self) -> str:
         return self._path  # pragma: nocover
 
-    async def send(self, message: bytes):
+    async def asend(self, message: bytes):
         async with self._send_lock:
             await self.send_stream.send(message)
             self.send_nb += 1
 
-    async def recv(self) -> bytes:
+    async def arecv(self) -> bytes:
         message = await self.receive_stream.receive()
         self.receive_nb += 1
         return message

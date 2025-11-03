@@ -1,25 +1,25 @@
 from __future__ import annotations
 
 import sys
-from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack
 from pathlib import Path
+from types import TracebackType
 
 import anyio
-from anyio import AsyncContextManagerMixin, AsyncFile, CancelScope, Lock, TASK_STATUS_IGNORED, create_memory_object_stream, create_task_group, open_file, sleep
+from anyio import AsyncFile, CancelScope, Lock, TASK_STATUS_IGNORED, create_memory_object_stream, create_task_group, open_file, sleep
 from anyio.abc import TaskGroup, TaskStatus
 from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
-from pycrdt import Channel, Decoder, Doc, YMessageType, YSyncMessageType, create_sync_message, handle_sync_message, write_message
+from pycrdt import Decoder, Doc, YMessageType, YSyncMessageType, create_sync_message, handle_sync_message, write_message
 
-from wiredb import Provider, ClientWire as _ClientWire
+from wiredb import Channel, ClientWire as _ClientWire
 
 if sys.version_info >= (3, 11):
-    from typing import Self
+    pass
 else:  # pragma: nocover
-    from typing_extensions import Self
+    pass
 
 
-class ClientWire(AsyncContextManagerMixin, _ClientWire):
+class ClientWire(_ClientWire):
     def __init__(
         self,
         id: str,
@@ -42,36 +42,48 @@ class ClientWire(AsyncContextManagerMixin, _ClientWire):
     def version(self) -> str:
         return self._version
 
-    @asynccontextmanager
-    async def __asynccontextmanager__(self) -> AsyncGenerator[Self]:
-        file_doc: Doc = Doc()
-        size = len(self._version) + 1
-        if file_exists := await self._path.exists():
-            file_version, messages = await read_file(self._path, self._lock)
-            if file_version != self._version:
-                raise RuntimeError(f'File version mismatch (got "{file_version}", expected "{self._version}")')
-            size += len(messages)
-            decoder = Decoder(messages)
-            while True:
-                update = decoder.read_message()
-                if not update:
-                    break
-                file_doc.apply_update(update)
-        async with file_doc.new_transaction():
-            sync_message = create_sync_message(file_doc)
-        async with await open_file(self._path, mode="a+b", buffering=0) as self._file:
+    async def __aenter__(self) -> ClientWire:
+        async with AsyncExitStack() as exit_stack:
+            file_doc: Doc = Doc()
+            size = len(self._version) + 1
+            if file_exists := await self._path.exists():
+                file_version, messages = await read_file(self._path, self._lock)
+                if file_version != self._version:
+                    raise RuntimeError(f'File version mismatch (got "{file_version}", expected "{self._version}")')
+                size += len(messages)
+                decoder = Decoder(messages)
+                while True:
+                    update = decoder.read_message()
+                    if not update:
+                        break
+                    file_doc.apply_update(update)
+            async with file_doc.new_transaction():
+                sync_message = create_sync_message(file_doc)
+            self._file = await exit_stack.enter_async_context(await open_file(self._path, mode="a+b", buffering=0))
             if not file_exists:
                 with CancelScope(shield=True):
                     await write_file(self._file, self._version.encode() + bytes([0]), self._lock)
             elif self._squash:
                 await squash_file(self._file, self._lock)
             send_stream, receive_stream = create_memory_object_stream[bytes](max_buffer_size=float("inf"))
-            async with send_stream, receive_stream, create_task_group() as tg:
-                await send_stream.send(sync_message)
-                self.channel = File(self._file, self._id, file_doc, send_stream, receive_stream, tg, self._write_delay, size, self._squash, self._version, self._lock)
-                async with Provider(self):
-                    yield self
-                    tg.cancel_scope.cancel()
+            send_stream = await exit_stack.enter_async_context(send_stream)
+            receive_stream = await exit_stack.enter_async_context(receive_stream)
+            self._task_group0 = await exit_stack.enter_async_context(create_task_group())
+            await send_stream.send(sync_message)
+            self.channel = File(self._file, self._id, file_doc, send_stream, receive_stream, self._task_group0, self._write_delay, size, self._squash, self._version, self._lock)
+            await super().__aenter__()
+            exit_stack.push_async_exit(super().__aexit__)
+            self._exit_stack0 = exit_stack.pop_all()
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> bool | None:
+        self._task_group0.cancel_scope.cancel()
+        return await self._exit_stack0.__aexit__(exc_type, exc_val, exc_tb)
 
 
 class File(Channel):
@@ -104,7 +116,7 @@ class File(Channel):
 
     async def __anext__(self) -> bytes:
         try:
-            message = await self.recv()
+            message = await self.arecv()
         except Exception:
             raise StopAsyncIteration()  # pragma: nocover
 
@@ -114,7 +126,7 @@ class File(Channel):
     def path(self) -> str:
         return self._path  # pragma: nocover
 
-    async def send(self, message: bytes) -> None:
+    async def asend(self, message: bytes) -> None:
         message_type = message[0]
         if message_type == YMessageType.SYNC:
             if message[1] == YSyncMessageType.SYNC_UPDATE:
@@ -135,7 +147,7 @@ class File(Channel):
                         await self._task_group.start(self._write_updates)
                     self._file_doc = None
 
-    async def recv(self) -> bytes:
+    async def arecv(self) -> bytes:
         message = await self._receive_stream.receive()
         return message
 

@@ -1,3 +1,4 @@
+import time
 from collections.abc import Callable
 
 import pytest
@@ -93,3 +94,29 @@ async def test_multiple_servers(free_tcp_port_factory: Callable[[], int]) -> Non
                     break
 
         tg.cancel_scope.cancel()
+
+
+def test_server_sync_client(websocket_server) -> None:
+    host, port = websocket_server
+    with (
+        connect("websocket", host=f"http://{host}", port=port) as client0,
+        connect("websocket", host=f"http://{host}", port=port) as client1,
+    ):
+        text0 = client0.doc.get("text", type=Text)
+        text1 = client1.doc.get("text", type=Text)
+        text0 += "Hello"
+        for i in range(10):
+            time.sleep(0.1)
+            client1.pull()
+            if str(text1) == "Hello":
+                break
+        else:
+            raise TimeoutError()  # pragma: nocover
+        text1 += ", World!"
+        for i in range(10):
+            time.sleep(0.1)
+            client0.pull()
+            if str(text0) == "Hello, World!":
+                break
+        else:
+            raise TimeoutError()  # pragma: nocover

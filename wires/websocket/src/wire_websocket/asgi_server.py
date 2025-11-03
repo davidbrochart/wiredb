@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Awaitable
 from typing import Any, Callable
 
-from pycrdt import Channel
+from wiredb import Channel
 
 
 class ASGIWebsocket(Channel):
@@ -25,9 +25,9 @@ class ASGIWebsocket(Channel):
         return self
 
     async def __anext__(self) -> bytes:
-        return await self.recv()
+        return await self.arecv()
 
-    async def send(self, message: bytes) -> None:
+    async def asend(self, message: bytes) -> None:
         await self._send(
             dict(
                 type="websocket.send",
@@ -35,7 +35,7 @@ class ASGIWebsocket(Channel):
             )
         )
 
-    async def recv(self) -> bytes:
+    async def arecv(self) -> bytes:
         message = await self._receive()
         if message["type"] == "websocket.receive":
             return message["bytes"]

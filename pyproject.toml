@@ -42,6 +42,7 @@ test = [
   "pytest",
   "trio",
   "coverage",
+  "requests",
 ]
 docs = [
   "mkdocs",
