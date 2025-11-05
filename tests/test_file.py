@@ -13,6 +13,21 @@ from wire_file.client_wire import ClientWire
 
 pytestmark = pytest.mark.anyio
 
+def test_synchronous_file(tmp_path: Path) -> None:
+    update_path = tmp_path / "updates.y"
+    doc0: Doc = Doc()
+    with connect("file", doc=doc0, path=update_path):
+        text0 = doc0.get("text", type=Text)
+        text0 += "Hello"
+    assert b"Hello" in update_path.read_bytes()
+
+    doc1: Doc = Doc()
+    with connect("file", doc=doc1, path=update_path):
+        pass
+    text1 = doc1.get("text", type=Text)
+    assert str(text1) == "Hello"
+
+
 async def test_file_without_write_delay(tmp_path: Path) -> None:
     update_path = tmp_path / "updates.y"
     doc0: Doc = Doc()
