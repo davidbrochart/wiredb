@@ -1,5 +1,10 @@
 # Version history
 
+## 0.6.0
+
+- Add sync API for `wire-file` and `wire-websocket`.
+- Remove `Provider`.
+
 ## 0.5.0
 
 - Support cookies in `wire-websocket`.

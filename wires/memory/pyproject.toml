@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "wire_memory"
-version = "0.5.0"
+version = "0.6.0"
 description = "Wire for communicating over memory"
 license = { file = "LICENSE" }
 authors = [
