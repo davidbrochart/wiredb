@@ -1,5 +1,9 @@
 # Version history
 
+## 0.6.2
+
+- Add client `synchronized` event.
+
 ## 0.6.1
 
 - Add sync API for `wire-file` and `wire-websocket`.
