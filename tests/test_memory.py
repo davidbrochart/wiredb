@@ -41,8 +41,9 @@ async def test_push_pull() -> None:
             text0 += ", "
             await wait_all_tasks_blocked()
             assert str(text1) == ""
+            assert not client1.synchronized.is_set()
             client1.pull()
-            await wait_all_tasks_blocked()
+            await client1.synchronized.wait()
             assert str(text1) == "Hello, "
             text1 += "World!"
             await wait_all_tasks_blocked()

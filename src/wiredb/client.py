@@ -26,8 +26,15 @@ class ClientWire:
         self._auto_update = auto_update
         self._pull_event = Event()
         self._push_event = Event()
-        self._handshaking = False
+        self._synchronizing = False
+        self._synchronized = Event()
         self._ready = Event()
+        if not auto_update:
+            self._ready.set()
+
+    @property
+    def synchronized(self) -> Event:
+        return self._synchronized
 
     def pull(self) -> None:
         """
@@ -50,7 +57,7 @@ class ClientWire:
         if self._auto_update:
             return
 
-        if not self._handshaking:
+        if not self._synchronizing:
             await self._pull_event.wait()
             self._pull_event = Event()
 
@@ -66,10 +73,8 @@ class ClientWire:
         return self._doc
 
     async def _arun(self):
-        if not self._auto_update:
-            self._ready.set()
         await self._wait_pull()
-        self._handshaking = True
+        self._synchronizing = True
         async with self._doc.new_transaction():
             sync_message = create_sync_message(self._doc)
         await self.channel.asend(sync_message)
@@ -82,11 +87,12 @@ class ClientWire:
                     await self.channel.asend(reply)
                 if message[1] == YSyncMessageType.SYNC_STEP2:
                     await self._task_group.start(self._send_updates)
-                    self._handshaking = False
+                    self._synchronizing = False
 
     async def _send_updates(self, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED):
         async with self._doc.events() as events:
             self._ready.set()
+            self._synchronized.set()
             task_status.started()
             update_nb = 0
             async for event in events:
