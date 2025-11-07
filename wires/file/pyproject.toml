@@ -37,6 +37,3 @@ Homepage = "https://github.com/davidbrochart/wiredb"
 
 [tool.uv.build-backend]
 module-name = "wire_file"
-
-[project.entry-points.wires]
-file_client = "wire_file.client_wire:ClientWire"

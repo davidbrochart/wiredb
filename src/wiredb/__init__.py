@@ -1,7 +1,9 @@
 from .channel import Channel as Channel
-from .client import ClientWire as ClientWire
-from .client import connect as connect
+from .channel import AsyncChannel as AsyncChannel
+from .client import AsyncClientMixin as AsyncClientMixin
+from .client import ClientMixin as ClientMixin
+from .client import Client as Client
+from .client import AsyncClient as AsyncClient
+from .server import AsyncServer as AsyncServer
 from .server import Room as Room
 from .server import RoomManager as RoomManager
-from .server import ServerWire as ServerWire
-from .server import bind as bind

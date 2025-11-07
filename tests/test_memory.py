@@ -2,16 +2,16 @@ import pytest
 from anyio import fail_after, sleep, wait_all_tasks_blocked
 from pycrdt import Text
 
-from wiredb import bind, connect
+from wire_memory import AsyncMemoryServer, AsyncMemoryClient
 
 
 pytestmark = pytest.mark.anyio
 
 async def test_memory() -> None:
-    async with bind("memory") as server:
+    async with AsyncMemoryServer() as server:
         async with (
-            connect("memory", server=server) as client0,
-            connect("memory", server=server) as client1,
+            AsyncMemoryClient(server=server) as client0,
+            AsyncMemoryClient(server=server) as client1,
         ):
             text0 = client0.doc.get("text", type=Text)
             text1 = client1.doc.get("text", type=Text)
@@ -30,10 +30,10 @@ async def test_memory() -> None:
 
 
 async def test_push_pull() -> None:
-    async with bind("memory") as server:
+    async with AsyncMemoryServer() as server:
         async with (
-            connect("memory", server=server) as client0,
-            connect("memory", auto_update=False, server=server) as client1,
+            AsyncMemoryClient(server=server) as client0,
+            AsyncMemoryClient(auto_push=False, auto_pull=False, server=server) as client1,
         ):
             text0 = client0.doc.get("text", type=Text)
             text1 = client1.doc.get("text", type=Text)

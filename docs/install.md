@@ -21,7 +21,7 @@ Then install `wiredb`.
 
 ```bash
 micromamba install wiredb
-micromamba install wire-websocket wire-file  # install wires "websocket" and "file"
+micromamba install wire-websocket wire-file  # install wires for WebSocket and file
 ```
 
 ## Development install

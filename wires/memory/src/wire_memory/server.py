@@ -7,14 +7,14 @@ from types import TracebackType
 
 from anyio import Lock, create_task_group, create_memory_object_stream
 
-from wiredb import Channel, Room, ServerWire as _ServerWire
+from wiredb import AsyncChannel, Room, AsyncServer
 
 
-class ServerWire(_ServerWire):
+class AsyncMemoryServer(AsyncServer):
     def __init__(self, room_factory: Callable[[str], Room] = Room) -> None:
         super().__init__(room_factory=room_factory)
 
-    async def __aenter__(self) -> ServerWire:
+    async def __aenter__(self) -> "AsyncMemoryServer":
         async with AsyncExitStack() as exit_stack:
             self._task_group = await exit_stack.enter_async_context(create_task_group())
             await exit_stack.enter_async_context(self.room_manager)
@@ -34,21 +34,22 @@ class ServerWire(_ServerWire):
         client_send_stream, server_receive_stream = create_memory_object_stream[bytes](max_buffer_size=math.inf)
         channel = Memory(server_send_stream, server_receive_stream, id)
         room = await self.room_manager.get_room(id)
-        self._task_group.start_soon(self._serve, room, channel)
+        await self._task_group.start(self._serve, room, channel)
         return client_send_stream, client_receive_stream
 
-    async def _serve(self, room: Room, channel: Memory):
+    async def _serve(self, room: Room, channel: Memory, *, task_status):
         async with (
-            channel.send_stream as channel.send_stream,
-            channel.receive_stream as channel.receive_stream
+            channel._send_stream as channel._send_stream,
+            channel._receive_stream as channel._receive_stream
         ):
+            task_status.started()
             await room.serve(channel)
 
 
-class Memory(Channel):
-    def __init__(self, send_stream, receive_stream, path: str):
-        self.send_stream = send_stream
-        self.receive_stream = receive_stream
+class Memory(AsyncChannel):
+    def __init__(self, send_stream, receive_stream, path: str) -> None:
+        self._send_stream = send_stream
+        self._receive_stream = receive_stream
         self._path = path
         self._send_lock = Lock()
         self.send_nb = 0
@@ -56,22 +57,22 @@ class Memory(Channel):
 
     async def __anext__(self) -> bytes:
         try:
-            message = await self.arecv()
+            message = await self.receive()
         except Exception:
             raise StopAsyncIteration()
 
         return message
 
     @property
-    def path(self) -> str:
+    def id(self) -> str:
         return self._path  # pragma: nocover
 
-    async def asend(self, message: bytes):
+    async def send(self, message: bytes) -> None:
         async with self._send_lock:
-            await self.send_stream.send(message)
+            await self._send_stream.send(message)
             self.send_nb += 1
 
-    async def arecv(self) -> bytes:
-        message = await self.receive_stream.receive()
+    async def receive(self) -> bytes:
+        message = await self._receive_stream.receive()
         self.receive_nb += 1
         return message

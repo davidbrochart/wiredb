@@ -4,14 +4,12 @@ import sys
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
-from importlib.metadata import entry_points
-from typing import Any
 
 from anyio import AsyncContextManagerMixin, Event, Lock, TASK_STATUS_IGNORED, create_task_group, get_cancelled_exc_class
 from anyio.abc import TaskGroup, TaskStatus
 from pycrdt import Doc, YMessageType, create_sync_message, create_update_message, handle_sync_message
 
-from .channel import Channel
+from .channel import AsyncChannel
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -29,7 +27,7 @@ class Room(AsyncContextManagerMixin):
         """
         self._id = id
         self._doc: Doc = Doc()
-        self._clients: set[Channel] = set()
+        self._clients: set[AsyncChannel] = set()
         self._clean_event = Event()
 
     @property
@@ -78,14 +76,14 @@ class Room(AsyncContextManagerMixin):
                     clients = set(self._clients)
                     for client in clients:
                         try:
-                            await client.asend(message)
+                            await client.send(message)
                         except get_cancelled_exc_class():  # pragma: nocover
                             self._remove_client(client)
                             raise
-                        except BaseException:  # pragma: nocover
+                        except Exception:  # pragma: nocover
                             self._remove_client(client)
 
-    async def serve(self, client: Channel, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED) -> None:
+    async def serve(self, client: AsyncChannel, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED) -> None:
         """
         The handler for a client which is responsible for the connection handshake and for applying the client updates to the room's shared document.
 
@@ -98,7 +96,7 @@ class Room(AsyncContextManagerMixin):
         try:
             async with self._doc.new_transaction():
                 sync_message = create_sync_message(self._doc)
-            await client.asend(sync_message)
+            await client.send(sync_message)
             task_status.started()
             started = True
             async for message in client:
@@ -107,17 +105,15 @@ class Room(AsyncContextManagerMixin):
                     async with self._doc.new_transaction():
                         reply = handle_sync_message(message[1:], self._doc)
                     if reply is not None:
-                        await client.asend(reply)
+                        await client.send(reply)
         except get_cancelled_exc_class():
             raise
-        except BaseException:  # pragma: nocover
-            pass
         finally:
             if not started:  # pragma: nocover
                 task_status.started()
             self._remove_client(client)
 
-    def _remove_client(self, client: Channel) -> None:
+    def _remove_client(self, client: AsyncChannel) -> None:
         self._clients.discard(client)
         if not self._clients:
             self._clean_event.set()
@@ -151,8 +147,19 @@ class RoomManager(AsyncContextManagerMixin):
         return room
 
 
-class ServerWire(ABC):
+class AsyncServer(ABC):
     def __init__(self, room_factory: Callable[[str], Room] = Room) -> None:
+        """
+        Creates an asynchronous server. The server must always
+        be used with an async context manager, for instance:
+        ```py
+        async with AsyncWebsocketServer(host="localhost", port=8000) as server:
+            ...
+        ```
+
+        Args:
+            room_factory: An optional callable used to create a room.
+        """
         self._room_manager = RoomManager(room_factory)
 
     @property
@@ -160,32 +167,7 @@ class ServerWire(ABC):
         return self._room_manager
 
     @abstractmethod
-    async def __aenter__(self) -> ServerWire: ...
+    async def __aenter__(self) -> "AsyncServer": ...
 
     @abstractmethod
     async def __aexit__(self, exc_type, exc_value, exc_tb) -> bool | None: ...
-
-
-def bind(wire: str, room_factory: Callable[[str], Room] = Room, **kwargs: Any) -> ServerWire:
-    """
-    Creates a server using a `wire`, and its specific arguments. The server must always
-    be used with an async context manager, for instance:
-    ```py
-    async with bind("websocket", host="localhost", port=8000) as server:
-        ...
-    ```
-
-    Args:
-        wire: The wire used to accept connections.
-        room_factory: An optional callable used to create a room.
-        kwargs: The arguments that are specific to the wire.
-
-    Returns:
-        The created server.
-    """
-    eps = entry_points(group="wires")
-    try:
-        _Wire = eps[f"{wire}_server"].load()
-    except KeyError:
-        raise RuntimeError(f'No server found for "{wire}", did you forget to install "wire-{wire}"?')
-    return _Wire(room_factory=room_factory, **kwargs)

@@ -3,10 +3,10 @@ from __future__ import annotations
 from collections.abc import Awaitable
 from typing import Any, Callable
 
-from wiredb import Channel
+from wiredb import AsyncChannel
 
 
-class ASGIWebsocket(Channel):
+class ASGIWebsocket(AsyncChannel):
     def __init__(
         self,
         receive: Callable[[], Awaitable[dict[str, Any]]],
@@ -18,16 +18,13 @@ class ASGIWebsocket(Channel):
         self._path = path
 
     @property
-    def path(self) -> str:
+    def id(self) -> str:
         return self._path
 
-    def __aiter__(self):
-        return self
-
     async def __anext__(self) -> bytes:
-        return await self.arecv()
+        return await self.receive()
 
-    async def asend(self, message: bytes) -> None:
+    async def send(self, message: bytes) -> None:
         await self._send(
             dict(
                 type="websocket.send",
@@ -35,7 +32,7 @@ class ASGIWebsocket(Channel):
             )
         )
 
-    async def arecv(self) -> bytes:
+    async def receive(self) -> bytes:
         message = await self._receive()
         if message["type"] == "websocket.receive":
             return message["bytes"]
