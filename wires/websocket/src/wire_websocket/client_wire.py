@@ -22,8 +22,8 @@ else:  # pragma: nocover
 
 
 class ClientWire(_ClientWire):
-    def __init__(self, id: str, doc: Doc | None = None, auto_update: bool = True, *, host: str, port: int, cookies: Cookies | None = None) -> None:
-        super().__init__(doc, auto_update)
+    def __init__(self, id: str, doc: Doc | None = None, auto_push: bool = True, auto_pull: bool = True, *, host: str, port: int, cookies: Cookies | None = None) -> None:
+        super().__init__(doc, auto_push, auto_pull)
         self._id = id
         self._host = host
         self._port = port

@@ -10,8 +10,8 @@ from .server_wire import Memory, ServerWire
 
 
 class ClientWire(_ClientWire):
-    def __init__(self, id: str, doc: Doc | None = None, auto_update: bool = True, *, server: ServerWire) -> None:
-        super().__init__(doc, auto_update)
+    def __init__(self, id: str, doc: Doc | None = None, auto_push: bool = True, auto_pull: bool = True, *, server: ServerWire) -> None:
+        super().__init__(doc, auto_push, auto_pull)
         self._id = id
         self._server = server
 

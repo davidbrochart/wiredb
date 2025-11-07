@@ -21,15 +21,16 @@ else:  # pragma: nocover
 class ClientWire:
     channel: Channel
 
-    def __init__(self, doc: Doc | None = None, auto_update: bool = True) -> None:
+    def __init__(self, doc: Doc | None = None, auto_push: bool = True, auto_pull: bool = True) -> None:
         self._doc: Doc = Doc() if doc is None else doc
-        self._auto_update = auto_update
+        self._auto_push = auto_push
+        self._auto_pull = auto_pull
         self._pull_event = Event()
         self._push_event = Event()
         self._synchronizing = False
         self._synchronized = Event()
         self._ready = Event()
-        if not auto_update:
+        if not auto_pull:
             self._ready.set()
 
     @property
@@ -38,7 +39,7 @@ class ClientWire:
 
     def pull(self) -> None:
         """
-        If the client was created with `auto_update=False`, applies the received updates
+        If the client was created with `auto_pull=False`, applies the received updates
         to the shared document.
         """
         if self._is_async:
@@ -48,13 +49,16 @@ class ClientWire:
 
     def push(self) -> None:
         """
-        If the client was created with `auto_update=False`, sends the updates made to the
+        If the client was created with `auto_push=False`, sends the updates made to the
         shared document locally.
         """
-        self._push_event.set()
+        if self._is_async:
+            self._push_event.set()
+        else:
+            self._send_updates(True)
 
     async def _wait_pull(self) -> None:
-        if self._auto_update:
+        if self._auto_pull:
             return
 
         if not self._synchronizing:
@@ -62,7 +66,7 @@ class ClientWire:
             self._pull_event = Event()
 
     async def _wait_push(self) -> None:
-        if self._auto_update:
+        if self._auto_push:
             return
 
         await self._push_event.wait()
@@ -86,10 +90,10 @@ class ClientWire:
                 if reply is not None:
                     await self.channel.asend(reply)
                 if message[1] == YSyncMessageType.SYNC_STEP2:
-                    await self._task_group.start(self._send_updates)
+                    await self._task_group.start(self._asend_updates)
                     self._synchronizing = False
 
-    async def _send_updates(self, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED):
+    async def _asend_updates(self, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED):
         async with self._doc.events() as events:
             self._ready.set()
             self._synchronized.set()
@@ -119,13 +123,21 @@ class ClientWire:
                     return True
                 return False
 
-    def _send_update(self, event: TransactionEvent) -> None:
-        message = create_update_message(event.update)
-        self.channel.send(message)
+    def _store_updates(self, event: TransactionEvent) -> None:
+        self._updates.append(event.update)
+        self._send_updates()
+
+    def _send_updates(self, do_send: bool = False) -> None:
+        if do_send or self._auto_push:
+            for update in self._updates:
+                message = create_update_message(update)
+                self.channel.send(message)
+            self._updates.clear()
 
     def __enter__(self) -> ClientWire:
         self._is_async = False
-        self.subscription = self._doc.observe(self._send_update)
+        self._updates: list[bytes] = []
+        self.subscription = self._doc.observe(self._store_updates)
         sync_message = create_sync_message(self._doc)
         self.channel.send(sync_message)
         while not self._pull():
@@ -160,7 +172,7 @@ class ClientWire:
         return await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
 
 
-def connect(wire: str, *, id: str = "", doc: Doc | None = None, auto_update: bool = True, **kwargs: Any) -> ClientWire:
+def connect(wire: str, *, id: str = "", doc: Doc | None = None, auto_push: bool = True, auto_pull: bool = True, **kwargs: Any) -> ClientWire:
     """
     Creates a client using a `wire`, and its specific arguments. The client must always
     be used with an async context manager, for instance:
@@ -173,11 +185,12 @@ def connect(wire: str, *, id: str = "", doc: Doc | None = None, auto_update: boo
         wire: The wire used to connect.
         id: The ID of the room to connect to in the server.
         doc: An optional external shared document (or a new one will be created).
-        auto_update: Whether to automatically apply updates to the shared document
-            as they are received, and send updates of the shared document as they
-            are made by this client. If `False`, the client can use the `pull()` and
-            `push()` client methods to apply the remote updates and send the local updates,
-            respectively.
+        auto_push: Whether to automatically send updates of the shared document as they
+            are made by this client. If `False`, the client can use the `push()` client methods
+            to send the local updates.
+        auto_pull: Whether to automatically apply updates to the shared document
+            as they are received. If `False`, the client can use the `pull()`
+            client methods to apply the remote updates.
         kwargs: The arguments that are specific to the wire.
 
     Returns:
@@ -188,4 +201,4 @@ def connect(wire: str, *, id: str = "", doc: Doc | None = None, auto_update: boo
         _Wire = eps[f"{wire}_client"].load()
     except KeyError:
         raise RuntimeError(f'No client found for "{wire}", did you forget to install "wire-{wire}"?')
-    return _Wire(id, doc, auto_update, **kwargs)
+    return _Wire(id, doc, auto_push, auto_pull, **kwargs)

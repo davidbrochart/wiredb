@@ -12,8 +12,8 @@ from .server_wire import STOP, Pipe
 
 
 class ClientWire(_ClientWire):
-    def __init__(self, id: str, doc: Doc | None = None, auto_update: bool = True, *, connection) -> None:
-        super().__init__(doc, auto_update)
+    def __init__(self, id: str, doc: Doc | None = None, auto_push: bool = True, auto_pull: bool = True, *, connection) -> None:
+        super().__init__(doc, auto_push, auto_pull)
         self._id = id
         self._sender, self._receiver, self._self_sender = connection
 

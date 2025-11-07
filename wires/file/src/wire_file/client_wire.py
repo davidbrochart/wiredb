@@ -26,13 +26,14 @@ class ClientWire(_ClientWire):
         self,
         id: str,
         doc: Doc | None = None,
-        auto_update: bool = True,
+        auto_push: bool = True,
+        auto_pull: bool = True,
         *,
         path: Path | str,
         write_delay: float = 0,
         squash: bool = False,
     ) -> None:
-        super().__init__(doc, auto_update)
+        super().__init__(doc, auto_push, auto_pull)
         self._id = id
         self._path: Path = Path(path)
         self._write_delay = write_delay

@@ -33,7 +33,7 @@ async def test_push_pull() -> None:
     async with bind("memory") as server:
         async with (
             connect("memory", server=server) as client0,
-            connect("memory", auto_update=False, server=server) as client1,
+            connect("memory", auto_push=False, auto_pull=False, server=server) as client1,
         ):
             text0 = client0.doc.get("text", type=Text)
             text1 = client1.doc.get("text", type=Text)
