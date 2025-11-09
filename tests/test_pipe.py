@@ -1,27 +1,21 @@
 import pytest
 
-from typing import cast
 
 from anyio import fail_after, sleep
 from pycrdt import Text
 
-from wiredb import bind, connect
-from wire_pipe.server_wire import ServerWire
+from wire_pipe import AsyncPipeClient, AsyncPipeServer
 
 
 pytestmark = pytest.mark.anyio
 
 async def test_pipe(anyio_backend: str) -> None:
-    if anyio_backend == "trio":
-        pytest.skip("Hangs on Trio")
-
-    async with bind("pipe") as server:
-        server = cast(ServerWire, server)
+    async with AsyncPipeServer() as server:
         connection0 = await server.connect("")
         connection1 = await server.connect("")
         async with (
-            connect("pipe", connection=connection0) as client0,
-            connect("pipe", connection=connection1) as client1,
+            AsyncPipeClient(connection=connection0) as client0,
+            AsyncPipeClient(connection=connection1) as client1,
         ):
             text0 = client0.doc.get("text", type=Text)
             text1 = client1.doc.get("text", type=Text)

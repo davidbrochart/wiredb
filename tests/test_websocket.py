@@ -7,16 +7,17 @@ from anyio import TASK_STATUS_IGNORED, create_task_group, fail_after, sleep, sle
 from anyio.abc import TaskStatus
 from pycrdt import Doc, Text
 
-from wiredb import Room, bind, connect
+from wiredb import Room
+from wire_websocket import AsyncWebSocketServer, AsyncWebSocketClient, WebSocketClient
 
 
 pytestmark = pytest.mark.anyio
 
 async def test_server(free_tcp_port: int) -> None:
-    async with bind("websocket", host="localhost", port=free_tcp_port) as server:
+    async with AsyncWebSocketServer(host="localhost", port=free_tcp_port) as server:
         async with (
-            connect("websocket", host="http://localhost", port=free_tcp_port) as client0,
-            connect("websocket", host="http://localhost", port=free_tcp_port) as client1,
+            AsyncWebSocketClient(host="http://localhost", port=free_tcp_port) as client0,
+            AsyncWebSocketClient(host="http://localhost", port=free_tcp_port) as client1,
         ):
             assert len(server.room_manager._rooms) == 1
             text0 = client0.doc.get("text", type=Text)
@@ -51,21 +52,21 @@ async def test_multiple_servers(free_tcp_port_factory: Callable[[], int]) -> Non
             await super().run(*args, **kwargs)
 
         async def _connect_to_server(self, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED) -> None:
-            async with connect("websocket", id=self.id, doc=self.doc, host="http://localhost", port=port0):
+            async with AsyncWebSocketClient(id=self.id, doc=self.doc, host="http://localhost", port=port0):
                 task_status.started()
                 await sleep_forever()
 
     async def run_server(port: int, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED) -> None:
         if port != port0:
-            server = bind("websocket", room_factory=MyRoom, host="localhost", port=port)
+            server = AsyncWebSocketServer(room_factory=MyRoom, host="localhost", port=port)
         else:
-            server = bind("websocket", host="localhost", port=port)
+            server = AsyncWebSocketServer(host="localhost", port=port)
         async with server:
             task_status.started()
             await sleep_forever()
 
     async def run_client(doc: Doc, port: int, message: str) -> None:
-        async with connect("websocket", doc=doc, host="http://localhost", port=port):
+        async with AsyncWebSocketClient(doc=doc, host="http://localhost", port=port):
             text = doc.get("text", type=Text)
             text += message
             await sleep_forever()
@@ -99,9 +100,11 @@ async def test_multiple_servers(free_tcp_port_factory: Callable[[], int]) -> Non
 def test_server_sync_client(websocket_server) -> None:
     host, port = websocket_server
     with (
-        connect("websocket", host=f"http://{host}", port=port) as client0,
-        connect("websocket", host=f"http://{host}", port=port) as client1,
+        WebSocketClient(host=f"http://{host}", port=port) as client0,
+        WebSocketClient(host=f"http://{host}", port=port) as client1,
     ):
+        client0.pull()
+        client1.pull()
         text0 = client0.doc.get("text", type=Text)
         text1 = client1.doc.get("text", type=Text)
         text0 += "Hello"

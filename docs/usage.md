@@ -7,13 +7,13 @@ In WireDB, clients and servers can use a variety of "wires", or transport layers
 ```py
 from anyio import run, sleep
 from pycrdt import Text
-from wiredb import bind, connect
+from wire_websocket import AsyncWebSocketClient, AsyncWebSocketServer
 
 async def main():
-    async with bind("websocket", host="localhost", port=8000) as server:
+    async with AsyncWebSocketServer(host="localhost", port=8000) as server:
         async with (
-            connect("websocket", host="localhost", port=8000) as client0,
-            connect("websocket", host="localhost", port=8000) as client1,
+            AsyncWebSocketClient(host="localhost", port=8000) as client0,
+            AsyncWebSocketClient(host="localhost", port=8000) as client1,
         ):
             text0 = client0.doc.get("text", Text)
             text0 += "Hello, World!"
@@ -29,12 +29,14 @@ This example runs on the same machine and in the same process, but it would run 
 If you wanted to add persistence, you could connect a client to a file:
 
 ```py
+from wire_file import AsyncFileClient
+
 async def main():
-    async with bind("websocket", host="localhost", port=8000) as server:
+    async with AsyncWebSocketServer(host="localhost", port=8000) as server:
         async with (
-            connect("websocket", host="localhost", port=8000) as client0,
-            connect("websocket", host="localhost", port=8000) as client1,
-            connect("file", doc=client1.doc, path="/path/to/updates.y"),
+            AsyncWebSocketClient(host="localhost", port=8000) as client0,
+            AsyncWebSocketClient(host="localhost", port=8000) as client1,
+            AsyncFileClient(doc=client1.doc, path="/path/to/updates.y"),
         ):
             ...
 ```
@@ -51,18 +53,18 @@ class MyRoom(Room):
         await super().run(*args, **kwargs)
 
     async def connect_to_file(self, *, task_status) -> None:
-        async with connect("file", doc=self.doc, path=f"/path/to/directory/{self.id}_updates.y"):
+        async with AsyncFileClient(doc=self.doc, path=f"/path/to/directory/{self.id}_updates.y"):
             task_status.started()
             await sleep_forever()
 
 async def main():
-    async with bind("websocket", room_factory=MyRoom, host="localhost", port=8000) as server:
+    async with AsyncWebSocketServer(room_factory=MyRoom, host="localhost", port=8000) as server:
         async with (
-            connect("websocket", id="my_id", host="localhost", port=8000) as client0,
-            connect("websocket", id="my_id", host="localhost", port=8000) as client1,
+            AsyncWebSocketClient(id="my_id", host="localhost", port=8000) as client0,
+            AsyncWebSocketClient(id="my_id", host="localhost", port=8000) as client1,
         ):
             ...
 ```
 
-The `id` of a `Room`  is used to map to file paths. In the example above, the clients connect to the server
+The `id` of a `Room` is used to map to file paths. In the example above, the clients connect to the server
 using `id="my_id"`, so the file name will be `my_id_updates.y`.

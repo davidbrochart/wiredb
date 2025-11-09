@@ -39,7 +39,3 @@ Homepage = "https://github.com/davidbrochart/wiredb"
 
 [tool.uv.build-backend]
 module-name = "wire_websocket"
-
-[project.entry-points.wires]
-websocket_client = "wire_websocket.client_wire:ClientWire"
-websocket_server = "wire_websocket.server_wire:ServerWire"

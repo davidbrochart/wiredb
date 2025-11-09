@@ -5,7 +5,7 @@
       inherited_members: true
       unwrap_annotated: true
       members:
-      - ClientWire
+      - Client
+      - AsyncClient
+      - AsyncServer
       - Room
-      - bind
-      - connect

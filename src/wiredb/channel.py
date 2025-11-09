@@ -5,68 +5,95 @@ class Channel(ABC):
     """A transport-agnostic stream used to synchronize a document.
     An example of a channel is a WebSocket.
 
+    Messages can be received by calling `receive()`, which takes an optional
+    timeout:
+    ```py
+    message = channel.receive()  # will block until a message is received
+    message = channel.receive(0)  # will return a message is one is available, or raise TimeoutError
+    ```
+    Sending messages is done with `send()`:
+    ```py
+    channel.send(message)
+    ```
+    """
+
+    @property
+    @abstractmethod
+    def id(self) -> str:
+        """The channel ID."""
+        ...  # pragma: nocover
+
+    @abstractmethod
+    def send(self, message: bytes) -> None:
+        """Sends a message.
+
+        Args:
+            message: The message to send.
+        """
+        ...  # pragma: nocover
+
+    @abstractmethod
+    def receive(self, timeout: float | None = None) -> bytes:
+        """Receives a message.
+
+        Args:
+            timeout: The time to wait until a message is received.
+
+        Returns:
+            The received message.
+
+        Raises:
+            TimeoutError: A message was not received before `timeout`.
+        """
+        ...  # pragma: nocover
+
+
+class AsyncChannel(ABC):
+    """A transport-agnostic asynchronous stream used to synchronize a document.
+    An example of a channel is a WebSocket.
+
     Messages can be received through the channel using an async iterator,
     until the connection is closed:
     ```py
     async for message in channel:
         ...
     ```
-    Or directly by calling `arecv()`:
+    Or directly by calling `receive()`:
     ```py
-    message = await channel.arecv()
+    message = await channel.receive()
     ```
-    Sending messages is done with `asend()`:
+    Sending messages is done with `send()`:
     ```py
-    await channel.asend(message)
+    await channel.send(message)
     ```
     """
 
     @property
     @abstractmethod
-    def path(self) -> str:
-        """The channel path."""
+    def id(self) -> str:
+        """The channel ID."""
         ...  # pragma: nocover
 
-    def __iter__(self) -> "Channel":
-        return self  # pragma: nocover
-
-    def __aiter__(self) -> "Channel":
+    def __aiter__(self) -> "AsyncChannel":
         return self
 
-    def __next__(self) -> bytes:
-        return self.recv()  # pragma: nocover
-
     async def __anext__(self) -> bytes:
-        return await self.arecv()  # pragma: nocover
+        return await self.receive()  # pragma: nocover
 
-    def send(self, message: bytes) -> None:
-        """Send a message.
-
-        Args:
-            message: The message to send.
-        """
-        raise NotImplementedError()  # pragma: nocover
-
-    def recv(self) -> bytes:
-        """Receive a message.
-
-        Returns:
-            The received message.
-        """
-        raise NotImplementedError()  # pragma: nocover
-
-    async def asend(self, message: bytes) -> None:
-        """Send a message.
+    @abstractmethod
+    async def send(self, message: bytes) -> None:
+        """Sends a message.
 
         Args:
             message: The message to send.
         """
-        raise NotImplementedError()  # pragma: nocover
+        ...  # pragma: nocover
 
-    async def arecv(self) -> bytes:
-        """Receive a message.
+    @abstractmethod
+    async def receive(self) -> bytes:
+        """Receives a message.
 
         Returns:
             The received message.
         """
-        raise NotImplementedError()  # pragma: nocover
+        ...  # pragma: nocover
