@@ -1,5 +1,13 @@
 # Version history
 
+## 0.7.0
+
+This is a big refactor to get rid of the `connect` and `bind` functions, and the entry-points where wires are registered.
+Instead, one directly uses the synchronous or asynchronous client and server classes. Also, `auto_update` has been replaced
+with `auto_push`/`auto_pull`. Note that synchronous clients only have `auto_push`, because they must manually call `pull()` anyway.
+This is due to the fact that it's not possible to receive updates in a thread because `pycrdt` doesn't allow multithreading, so
+`auto_pull` for a synchronous client would just block everything.
+
 ## 0.6.2
 
 - Add client `synchronized` event.

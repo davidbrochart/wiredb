@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "wire_pipe"
-version = "0.6.1"
+version = "0.7.0"
 description = "Wire for communicating over pipes"
 license = { file = "LICENSE" }
 authors = [
@@ -29,7 +29,7 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-  "wiredb >=0.6.0,<0.7.0",
+  "wiredb >=0.7.0,<0.8.0",
 ]
 
 [project.urls]
