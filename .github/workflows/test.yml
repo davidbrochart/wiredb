@@ -40,6 +40,7 @@ jobs:
       - name: Lint
         run: |
           ruff check src wires tests
+          ruff format --check src wires tests
 
       - name: Run tests
         if: ${{ !((matrix.python-version == '3.14') && (matrix.os == 'ubuntu')) }}

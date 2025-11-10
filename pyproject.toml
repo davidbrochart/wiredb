@@ -70,3 +70,6 @@ wire-memory = { workspace = true }
 wire-pipe = { workspace = true }
 wire-websocket = { workspace = true }
 wire-file = { workspace = true }
+
+[tool.ruff]
+lint.extend-select = ["I"]

@@ -6,7 +6,16 @@ from types import TracebackType
 
 from anyio import Event, create_task_group
 from anyio.abc import TaskStatus
-from pycrdt import Doc, Subscription, TransactionEvent, YMessageType, YSyncMessageType, create_sync_message, create_update_message, handle_sync_message
+from pycrdt import (
+    Doc,
+    Subscription,
+    TransactionEvent,
+    YMessageType,
+    YSyncMessageType,
+    create_sync_message,
+    create_update_message,
+    handle_sync_message,
+)
 
 from .channel import AsyncChannel, Channel
 
@@ -53,7 +62,9 @@ class AsyncClientMixin:
 
 
 class Client:
-    def __init__(self, channel: Channel, doc: Doc | None = None, auto_push: bool = False) -> None:
+    def __init__(
+        self, channel: Channel, doc: Doc | None = None, auto_push: bool = False
+    ) -> None:
         """
         Creates a client that connects to a server. The client must always
         be used with a context manager, for instance:
@@ -146,7 +157,13 @@ class Client:
 
 
 class AsyncClient:
-    def __init__(self, channel: AsyncChannel, doc: Doc | None = None, auto_push: bool = True, auto_pull: bool = True) -> None:
+    def __init__(
+        self,
+        channel: AsyncChannel,
+        doc: Doc | None = None,
+        auto_push: bool = True,
+        auto_pull: bool = True,
+    ) -> None:
         """
         Creates an async client that connects to a server. The client must always
         be used with an async context manager, for instance:

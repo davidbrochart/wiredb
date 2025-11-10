@@ -4,13 +4,22 @@ from contextlib import AsyncExitStack
 from types import TracebackType
 
 from pycrdt import Doc
+
 from wiredb import AsyncClient, AsyncClientMixin
 
-from .server import Memory, AsyncMemoryServer
+from .server import AsyncMemoryServer, Memory
 
 
 class AsyncMemoryClient(AsyncClientMixin):
-    def __init__(self, id: str = "", doc: Doc | None = None, auto_push: bool = True, auto_pull: bool = True, *, server: AsyncMemoryServer) -> None:
+    def __init__(
+        self,
+        id: str = "",
+        doc: Doc | None = None,
+        auto_push: bool = True,
+        auto_pull: bool = True,
+        *,
+        server: AsyncMemoryServer,
+    ) -> None:
         self._id = id
         self._doc = doc
         self._auto_push = auto_push
@@ -23,7 +32,9 @@ class AsyncMemoryClient(AsyncClientMixin):
             send_stream = await exit_stack.enter_async_context(_send_stream)
             receive_stream = await exit_stack.enter_async_context(_receive_stream)
             self.channel = Memory(send_stream, receive_stream, self._id)
-            self._client = await AsyncClient(self.channel, self._doc, self._auto_push, self._auto_pull).__aenter__()
+            self._client = await AsyncClient(
+                self.channel, self._doc, self._auto_push, self._auto_pull
+            ).__aenter__()
             exit_stack.push_async_exit(self._client.__aexit__)
             self._exit_stack = exit_stack.pop_all()
         return self

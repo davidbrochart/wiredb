@@ -5,9 +5,22 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 
-from anyio import AsyncContextManagerMixin, Event, Lock, TASK_STATUS_IGNORED, create_task_group, get_cancelled_exc_class
+from anyio import (
+    TASK_STATUS_IGNORED,
+    AsyncContextManagerMixin,
+    Event,
+    Lock,
+    create_task_group,
+    get_cancelled_exc_class,
+)
 from anyio.abc import TaskGroup, TaskStatus
-from pycrdt import Doc, YMessageType, create_sync_message, create_update_message, handle_sync_message
+from pycrdt import (
+    Doc,
+    YMessageType,
+    create_sync_message,
+    create_update_message,
+    handle_sync_message,
+)
 
 from .channel import AsyncChannel
 
@@ -83,7 +96,12 @@ class Room(AsyncContextManagerMixin):
                         except Exception:  # pragma: nocover
                             self._remove_client(client)
 
-    async def serve(self, client: AsyncChannel, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED) -> None:
+    async def serve(
+        self,
+        client: AsyncChannel,
+        *,
+        task_status: TaskStatus[None] = TASK_STATUS_IGNORED,
+    ) -> None:
         """
         The handler for a client which is responsible for the connection handshake and for applying the client updates to the room's shared document.
 

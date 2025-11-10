@@ -7,12 +7,35 @@ from pathlib import Path
 from types import TracebackType
 
 import anyio
-from anyio import CancelScope, Lock, TASK_STATUS_IGNORED, create_memory_object_stream, create_task_group, open_file, sleep
+from anyio import (
+    TASK_STATUS_IGNORED,
+    CancelScope,
+    Lock,
+    create_memory_object_stream,
+    create_task_group,
+    open_file,
+    sleep,
+)
 from anyio.abc import TaskGroup, TaskStatus
 from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
-from pycrdt import Decoder, Doc, YMessageType, YSyncMessageType, create_sync_message, handle_sync_message, write_message
+from pycrdt import (
+    Decoder,
+    Doc,
+    YMessageType,
+    YSyncMessageType,
+    create_sync_message,
+    handle_sync_message,
+    write_message,
+)
 
-from wiredb import AsyncChannel, Channel, AsyncClient, Client, AsyncClientMixin, ClientMixin
+from wiredb import (
+    AsyncChannel,
+    AsyncClient,
+    AsyncClientMixin,
+    Channel,
+    Client,
+    ClientMixin,
+)
 
 if sys.version_info >= (3, 11):
     pass
@@ -51,7 +74,9 @@ class FileClient(ClientMixin):
             if file_exists := self._path.exists():
                 file_version, messages = read_file(self._path)
                 if file_version != self._version:  # pragma: nocover
-                    raise RuntimeError(f'File version mismatch (got "{file_version}", expected "{self._version}")')
+                    raise RuntimeError(
+                        f'File version mismatch (got "{file_version}", expected "{self._version}")'
+                    )
                 size += len(messages)
                 decoder = Decoder(messages)
                 while True:
@@ -60,7 +85,9 @@ class FileClient(ClientMixin):
                         break
                     file_doc.apply_update(update)
             sync_message = create_sync_message(file_doc)
-            self._file = exit_stack.enter_context(open(self._path, mode="a+b", buffering=0))
+            self._file = exit_stack.enter_context(
+                open(self._path, mode="a+b", buffering=0)
+            )
             if not file_exists:
                 write_file(self._file, self._version.encode() + bytes([0]))
             elif self._squash:  # pragma: nocover
@@ -80,7 +107,6 @@ class FileClient(ClientMixin):
             exit_stack.push(self._client.__exit__)
             self._exit_stack = exit_stack.pop_all()
         return self
-
 
     def __exit__(
         self,
@@ -125,7 +151,9 @@ class AsyncFileClient(AsyncClientMixin):
             if file_exists := await path.exists():
                 file_version, messages = await aread_file(path, self._lock)
                 if file_version != self._version:
-                    raise RuntimeError(f'File version mismatch (got "{file_version}", expected "{self._version}")')
+                    raise RuntimeError(
+                        f'File version mismatch (got "{file_version}", expected "{self._version}")'
+                    )
                 size += len(messages)
                 decoder = Decoder(messages)
                 while True:
@@ -135,13 +163,19 @@ class AsyncFileClient(AsyncClientMixin):
                     file_doc.apply_update(update)
             async with file_doc.new_transaction():
                 sync_message = create_sync_message(file_doc)
-            self._file = await exit_stack.enter_async_context(await open_file(path, mode="a+b", buffering=0))
+            self._file = await exit_stack.enter_async_context(
+                await open_file(path, mode="a+b", buffering=0)
+            )
             if not file_exists:
                 with CancelScope(shield=True):
-                    await awrite_file(self._file, self._version.encode() + bytes([0]), self._lock)
+                    await awrite_file(
+                        self._file, self._version.encode() + bytes([0]), self._lock
+                    )
             elif self._squash:
                 await asquash_file(self._file, self._lock)
-            send_stream, receive_stream = create_memory_object_stream[bytes](max_buffer_size=float("inf"))
+            send_stream, receive_stream = create_memory_object_stream[bytes](
+                max_buffer_size=float("inf")
+            )
             send_stream = await exit_stack.enter_async_context(send_stream)
             receive_stream = await exit_stack.enter_async_context(receive_stream)
             self._task_group = await exit_stack.enter_async_context(create_task_group())
@@ -159,7 +193,9 @@ class AsyncFileClient(AsyncClientMixin):
                 task_group=self._task_group,
                 lock=self._lock,
             )
-            self._client = await AsyncClient(channel, self._doc, self._auto_push, self._auto_pull).__aenter__()
+            self._client = await AsyncClient(
+                channel, self._doc, self._auto_push, self._auto_pull
+            ).__aenter__()
             exit_stack.push_async_exit(self._client.__aexit__)
             self._exit_stack = exit_stack.pop_all()
         return self
@@ -304,7 +340,9 @@ class AsyncFile(AsyncChannel):
         assert self._receive_stream is not None
         return await self._receive_stream.receive()
 
-    async def _write_updates(self, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED):
+    async def _write_updates(
+        self, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED
+    ):
         assert self._lock is not None
         with CancelScope() as self._write_cancel_scope:
             task_status.started()
@@ -341,7 +379,9 @@ async def awrite_file(file: anyio.AsyncFile[bytes], data: bytes, lock: Lock) -> 
         await file.write(data)
 
 
-def squash_file(file: FileIO, with_messages: bytes | None = None) -> None:  # pragma: nocover
+def squash_file(
+    file: FileIO, with_messages: bytes | None = None
+) -> None:  # pragma: nocover
     file.seek(0)
     data = file.read()
     version, messages = data.split(bytes([0]), 1)
@@ -361,7 +401,9 @@ def squash_file(file: FileIO, with_messages: bytes | None = None) -> None:  # pr
     file.write(message)
 
 
-async def asquash_file(file: anyio.AsyncFile[bytes], lock: Lock, with_messages: bytes | None = None) -> None:
+async def asquash_file(
+    file: anyio.AsyncFile[bytes], lock: Lock, with_messages: bytes | None = None
+) -> None:
     async with lock:
         await file.seek(0)
         data = await file.read()

@@ -2,14 +2,12 @@ import re
 from pathlib import Path
 
 import pytest
-
 from anyio import sleep, wait_all_tasks_blocked
 from pycrdt import Doc, Text
-
 from wire_file.client import AsyncFileClient, FileClient
 
-
 pytestmark = pytest.mark.anyio
+
 
 def test_synchronous_file(tmp_path: Path) -> None:
     update_path = tmp_path / "updates.y"
@@ -66,7 +64,10 @@ async def test_file_wrong_version(tmp_path: Path) -> None:
     update_path = tmp_path / "updates.y"
     update_path.write_bytes(b"0.0.0" + bytes([0]))
 
-    with pytest.raises(RuntimeError, match=re.escape('File version mismatch (got "0.0.0", expected "0.0.1")')):
+    with pytest.raises(
+        RuntimeError,
+        match=re.escape('File version mismatch (got "0.0.0", expected "0.0.1")'),
+    ):
         async with AsyncFileClient(path=update_path):
             pass  # pragma: nocover
 

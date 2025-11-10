@@ -6,15 +6,21 @@ from contextlib import AsyncExitStack
 from functools import partial
 from types import TracebackType
 
-from anyio import Lock, create_memory_object_stream, create_task_group, from_thread, to_thread
+from anyio import (
+    Lock,
+    create_memory_object_stream,
+    create_task_group,
+    from_thread,
+    to_thread,
+)
 from anyio.abc import TaskGroup
 from anyio.streams.buffered import BufferedByteReceiveStream
 
-from wiredb import AsyncChannel, Room, AsyncServer
+from wiredb import AsyncChannel, AsyncServer, Room
 
 SEPARATOR = bytes([226, 164, 131, 121, 240, 77, 100, 52])
 STOP = bytes([80, 131, 218, 244, 198, 47, 146, 214])
-MAX_RECEIVE_BYTE_NB = 2 ** 16
+MAX_RECEIVE_BYTE_NB = 2**16
 
 
 class AsyncPipeServer(AsyncServer):
@@ -42,9 +48,9 @@ class AsyncPipeServer(AsyncServer):
         if server_sender is None:
             client_receiver, server_sender = os.pipe()
             server_receiver, client_sender = os.pipe()
-            #os.set_inheritable(client_receiver, True)
-            #os.set_inheritable(client_sender, True)
-            #os.set_inheritable(server_sender, True)
+            # os.set_inheritable(client_receiver, True)
+            # os.set_inheritable(client_sender, True)
+            # os.set_inheritable(server_sender, True)
         channel = Pipe(self._task_group, server_sender, server_receiver, id)
         room = await self.room_manager.get_room(id)
         await self._task_group.start(room.serve, channel)
@@ -56,7 +62,9 @@ class Pipe(AsyncChannel):
     def __init__(self, tg: TaskGroup, sender: int, receiver: int, id: str):
         self._sender = sender
         self._receiver = receiver
-        self._send_stream, receive_stream = create_memory_object_stream[bytes](float("inf"))
+        self._send_stream, receive_stream = create_memory_object_stream[bytes](
+            float("inf")
+        )
         self._buffered_stream = BufferedByteReceiveStream(receive_stream)
         self._id = id
         self._send_lock = Lock()

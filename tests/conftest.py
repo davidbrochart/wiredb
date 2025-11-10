@@ -1,11 +1,10 @@
 import time
 from multiprocessing import Process
 
+import httpx
+import pytest
 from anyio import run, sleep_forever
 from wire_websocket import AsyncWebSocketServer
-
-import pytest
-import httpx
 
 
 def run_server(host: str, port: int):  # pragma: nocover

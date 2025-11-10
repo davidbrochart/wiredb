@@ -4,15 +4,18 @@ from collections.abc import Callable
 from contextlib import AsyncExitStack
 from types import TracebackType
 
-from anyio import Event, create_task_group
 from anycorn import Config, serve
+from anyio import Event, create_task_group
+
 from wiredb import AsyncChannel, AsyncServer, Room
 
 from .asgi_server import ASGIServer
 
 
 class AsyncWebSocketServer(AsyncServer):
-    def __init__(self, room_factory: Callable[[str], Room] = Room, *, host: str, port: int) -> None:
+    def __init__(
+        self, room_factory: Callable[[str], Room] = Room, *, host: str, port: int
+    ) -> None:
         super().__init__(room_factory=room_factory)
         self._host = host
         self._port = port
@@ -25,7 +28,14 @@ class AsyncWebSocketServer(AsyncServer):
         async with AsyncExitStack() as exit_stack:
             self._task_group = await exit_stack.enter_async_context(create_task_group())
             await exit_stack.enter_async_context(self.room_manager)
-            self._task_group.start_soon(lambda: serve(self._app, self._config, shutdown_trigger=self._shutdown_event.wait, mode="asgi"))  # type: ignore[arg-type]
+            self._task_group.start_soon(
+                lambda: serve(
+                    self._app,  # type: ignore[arg-type]
+                    self._config,
+                    shutdown_trigger=self._shutdown_event.wait,
+                    mode="asgi",
+                )
+            )
             self._exit_stack = exit_stack.pop_all()
         return self
 
