@@ -8,9 +8,9 @@ from types import TracebackType
 
 import anyio
 from anyio import (
+    TASK_STATUS_IGNORED,
     CancelScope,
     Lock,
-    TASK_STATUS_IGNORED,
     create_memory_object_stream,
     create_task_group,
     open_file,
@@ -30,10 +30,10 @@ from pycrdt import (
 
 from wiredb import (
     AsyncChannel,
-    Channel,
     AsyncClient,
-    Client,
     AsyncClientMixin,
+    Channel,
+    Client,
     ClientMixin,
 )
 

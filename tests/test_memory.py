@@ -1,9 +1,7 @@
 import pytest
 from anyio import fail_after, sleep, wait_all_tasks_blocked
 from pycrdt import Text
-
-from wire_memory import AsyncMemoryServer, AsyncMemoryClient
-
+from wire_memory import AsyncMemoryClient, AsyncMemoryServer
 
 pytestmark = pytest.mark.anyio
 

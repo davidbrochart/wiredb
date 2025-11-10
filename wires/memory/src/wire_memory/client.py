@@ -4,9 +4,10 @@ from contextlib import AsyncExitStack
 from types import TracebackType
 
 from pycrdt import Doc
+
 from wiredb import AsyncClient, AsyncClientMixin
 
-from .server import Memory, AsyncMemoryServer
+from .server import AsyncMemoryServer, Memory
 
 
 class AsyncMemoryClient(AsyncClientMixin):

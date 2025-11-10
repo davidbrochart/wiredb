@@ -1,11 +1,7 @@
 import pytest
-
-
 from anyio import fail_after, sleep
 from pycrdt import Text
-
 from wire_pipe import AsyncPipeClient, AsyncPipeServer
-
 
 pytestmark = pytest.mark.anyio
 

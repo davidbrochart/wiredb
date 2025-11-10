@@ -16,7 +16,7 @@ from anyio import (
 from anyio.abc import TaskGroup
 from anyio.streams.buffered import BufferedByteReceiveStream
 
-from wiredb import AsyncChannel, Room, AsyncServer
+from wiredb import AsyncChannel, AsyncServer, Room
 
 SEPARATOR = bytes([226, 164, 131, 121, 240, 77, 100, 52])
 STOP = bytes([80, 131, 218, 244, 198, 47, 146, 214])

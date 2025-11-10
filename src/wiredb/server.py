@@ -6,10 +6,10 @@ from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 
 from anyio import (
+    TASK_STATUS_IGNORED,
     AsyncContextManagerMixin,
     Event,
     Lock,
-    TASK_STATUS_IGNORED,
     create_task_group,
     get_cancelled_exc_class,
 )

@@ -2,7 +2,6 @@ import time
 from collections.abc import Callable
 
 import pytest
-
 from anyio import (
     TASK_STATUS_IGNORED,
     create_task_group,
@@ -12,10 +11,9 @@ from anyio import (
 )
 from anyio.abc import TaskStatus
 from pycrdt import Doc, Text
+from wire_websocket import AsyncWebSocketClient, AsyncWebSocketServer, WebSocketClient
 
 from wiredb import Room
-from wire_websocket import AsyncWebSocketServer, AsyncWebSocketClient, WebSocketClient
-
 
 pytestmark = pytest.mark.anyio
 

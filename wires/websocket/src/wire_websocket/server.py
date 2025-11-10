@@ -4,8 +4,9 @@ from collections.abc import Callable
 from contextlib import AsyncExitStack
 from types import TracebackType
 
-from anyio import Event, create_task_group
 from anycorn import Config, serve
+from anyio import Event, create_task_group
+
 from wiredb import AsyncChannel, AsyncServer, Room
 
 from .asgi_server import ASGIServer

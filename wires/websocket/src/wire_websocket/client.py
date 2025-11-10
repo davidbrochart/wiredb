@@ -7,25 +7,24 @@ from queue import Empty
 from types import TracebackType
 
 from anyio import (
-    Lock,
     TASK_STATUS_IGNORED,
+    Lock,
     create_task_group,
     get_cancelled_exc_class,
     sleep_forever,
 )
 from anyio.abc import TaskStatus
 from httpx import Cookies
-from httpx_ws import AsyncWebSocketSession, aconnect_ws
-from httpx_ws import WebSocketSession, connect_ws
+from httpx_ws import AsyncWebSocketSession, WebSocketSession, aconnect_ws, connect_ws
 from pycrdt import Doc
 
 from wiredb import (
-    AsyncClient,
     AsyncChannel,
-    Channel,
+    AsyncClient,
     AsyncClientMixin,
-    ClientMixin,
+    Channel,
     Client,
+    ClientMixin,
 )
 
 if sys.version_info >= (3, 11):

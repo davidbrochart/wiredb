@@ -6,6 +6,7 @@ from types import TracebackType
 
 from anyio import create_task_group
 from pycrdt import Doc
+
 from wiredb import AsyncClient, AsyncClientMixin
 
 from .server import STOP, Pipe

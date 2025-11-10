@@ -5,9 +5,9 @@ from collections.abc import Callable
 from contextlib import AsyncExitStack
 from types import TracebackType
 
-from anyio import Lock, create_task_group, create_memory_object_stream
+from anyio import Lock, create_memory_object_stream, create_task_group
 
-from wiredb import AsyncChannel, Room, AsyncServer
+from wiredb import AsyncChannel, AsyncServer, Room
 
 
 class AsyncMemoryServer(AsyncServer):

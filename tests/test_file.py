@@ -2,12 +2,9 @@ import re
 from pathlib import Path
 
 import pytest
-
 from anyio import sleep, wait_all_tasks_blocked
 from pycrdt import Doc, Text
-
 from wire_file.client import AsyncFileClient, FileClient
-
 
 pytestmark = pytest.mark.anyio
 

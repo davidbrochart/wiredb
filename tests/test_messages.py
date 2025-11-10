@@ -4,9 +4,7 @@ from typing import cast
 import pytest
 from anyio import wait_all_tasks_blocked
 from pycrdt import Text
-
 from wire_memory import AsyncMemoryClient, AsyncMemoryServer, Memory
-
 
 pytestmark = pytest.mark.anyio
 
