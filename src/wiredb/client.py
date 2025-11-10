@@ -23,14 +23,14 @@ class ClientMixin:
     def doc(self) -> Doc:
         return self._client._doc
 
-    def push(self) -> None:  # pragma: nocover
+    def push(self) -> None:
         self._client.push()
 
     def pull(self) -> None:
         self._client.pull()
 
     @property
-    def synchronized(self) -> bool:  # pragma: nocover
+    def synchronized(self) -> bool:
         return self._client._synchronized
 
 
@@ -95,13 +95,13 @@ class Client:
         """
         self._send_updates(True)
 
-    def _pull(self, synchronizing: bool = False) -> None:
-        if not self._auto_push and not self._synchronizing:
+    def _pull(self) -> None:
+        if not self._synchronizing and not self._synchronized:
             self._synchronizing = True
             sync_message = create_sync_message(self._doc)
             self._channel.send(sync_message)
 
-        timeout = None if synchronizing else 0
+        timeout = None if self._synchronizing else 0
 
         while True:
             try:
@@ -134,9 +134,6 @@ class Client:
 
     def __enter__(self) -> "Client":
         self._updates: list[bytes] = []
-        if self._auto_push:
-            sync_message = create_sync_message(self._doc)
-            self._channel.send(sync_message)
         return self
 
     def __exit__(

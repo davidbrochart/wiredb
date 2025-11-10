@@ -68,3 +68,16 @@ async def main():
 
 The `id` of a `Room` is used to map to file paths. In the example above, the clients connect to the server
 using `id="my_id"`, so the file name will be `my_id_updates.y`.
+
+## Synchronous and asynchronous clients
+
+Clients may come in two forms: synchronous or asynchronous.
+
+By default, asynchronous clients will receive updates in the background and apply them to the shared document,
+and send local updates to the server as soon as they are made. It is possible to change that behavior through the
+`auto_push` and `auto_pull` arguments. If set to `False`, one will need to call `client.pull()` to receive and
+apply updates, and `client.push()` to send local updates.
+
+Synchronous clients on the other hand cannot receive updates in the background, and so one always has to call
+`client.pull()` manually. The default behavior is also to not automatically send local updates, so one always
+has to call `client.push()` too.
