@@ -30,12 +30,12 @@ class AsyncWebSocketServer(AsyncServer):
             await exit_stack.enter_async_context(self.room_manager)
             self._task_group.start_soon(
                 lambda: serve(
-                    self._app,
+                    self._app,  # type: ignore[arg-type]
                     self._config,
                     shutdown_trigger=self._shutdown_event.wait,
                     mode="asgi",
                 )
-            )  # type: ignore[arg-type]
+            )
             self._exit_stack = exit_stack.pop_all()
         return self
 
