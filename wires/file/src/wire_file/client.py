@@ -25,7 +25,7 @@ class FileClient(ClientMixin):
         self,
         id: str = "",
         doc: Doc | None = None,
-        auto_push: bool = True,
+        auto_push: bool = False,
         *,
         path: Path | str,
         write_delay: float = 0,

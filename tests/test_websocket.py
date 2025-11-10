@@ -101,13 +101,20 @@ def test_server_sync_client(websocket_server) -> None:
     host, port = websocket_server
     with (
         WebSocketClient(host=f"http://{host}", port=port) as client0,
-        WebSocketClient(host=f"http://{host}", port=port) as client1,
+        WebSocketClient(host=f"http://{host}", auto_push=True, port=port) as client1,
     ):
+        assert not client0.synchronized
+        assert not client1.synchronized
         client0.pull()
         client1.pull()
+        assert client0.synchronized
+        assert client1.synchronized
         text0 = client0.doc.get("text", type=Text)
         text1 = client1.doc.get("text", type=Text)
         text0 += "Hello"
+        time.sleep(0.1)
+        assert str(text1) == ""
+        client0.push()
         for i in range(10):
             time.sleep(0.1)
             client1.pull()
@@ -115,6 +122,7 @@ def test_server_sync_client(websocket_server) -> None:
                 break
         else:
             raise TimeoutError()  # pragma: nocover
+        client1.pull()
         text1 += ", World!"
         for i in range(10):
             time.sleep(0.1)

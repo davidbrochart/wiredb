@@ -22,7 +22,7 @@ else:  # pragma: nocover
 
 
 class WebSocketClient(ClientMixin):
-    def __init__(self, id: str = "", doc: Doc | None = None, auto_push: bool = True, *, host: str, port: int, cookies: Cookies | None = None) -> None:
+    def __init__(self, id: str = "", doc: Doc | None = None, auto_push: bool = False, *, host: str, port: int, cookies: Cookies | None = None) -> None:
         self._id = id
         self._doc = doc
         self._auto_push = auto_push

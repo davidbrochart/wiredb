@@ -23,14 +23,14 @@ class ClientMixin:
     def doc(self) -> Doc:
         return self._client._doc
 
-    def push(self) -> None:  # pragma: nocover
+    def push(self) -> None:
         self._client.push()
 
     def pull(self) -> None:
         self._client.pull()
 
     @property
-    def synchronized(self) -> bool:  # pragma: nocover
+    def synchronized(self) -> bool:
         return self._client._synchronized
 
 
@@ -64,12 +64,10 @@ class Client:
 
         Args:
             channel: The channel used to communicate with the server.
-            id: The ID of the room to connect to in the server.
             doc: An optional external shared document (or a new one will be created).
             auto_push: Whether to automatically send updates of the shared document as they
                 are made by this client. If `False`, the client can use the `push()` method
                 to send the local updates.
-            kwargs: The arguments that are specific to the wire.
         """
         self._channel = channel
         self._doc: Doc = Doc() if doc is None else doc
@@ -95,13 +93,13 @@ class Client:
         """
         self._send_updates(True)
 
-    def _pull(self, synchronizing: bool = False) -> None:
-        if not self._auto_push and not self._synchronizing:
+    def _pull(self) -> None:
+        if not self._synchronizing and not self._synchronized:
             self._synchronizing = True
             sync_message = create_sync_message(self._doc)
             self._channel.send(sync_message)
 
-        timeout = None if synchronizing else 0
+        timeout = None if self._synchronizing else 0
 
         while True:
             try:
@@ -134,9 +132,6 @@ class Client:
 
     def __enter__(self) -> "Client":
         self._updates: list[bytes] = []
-        if self._auto_push:
-            sync_message = create_sync_message(self._doc)
-            self._channel.send(sync_message)
         return self
 
     def __exit__(
@@ -162,7 +157,6 @@ class AsyncClient:
 
         Args:
             channel: The async channel used to communicate with the server.
-            id: The ID of the room to connect to in the server.
             doc: An optional external shared document (or a new one will be created).
             auto_push: Whether to automatically send updates of the shared document as they
                 are made by this client. If `False`, the client can use the `push()` method
@@ -170,7 +164,6 @@ class AsyncClient:
             auto_pull: Whether to automatically apply updates to the shared document
                 as they are received. If `False`, the client can use the `pull()`
                 method to apply the remote updates.
-            kwargs: The arguments that are specific to the wire.
         """
         self._channel = channel
         self._doc: Doc = Doc() if doc is None else doc
