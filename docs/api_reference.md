@@ -8,4 +8,6 @@
       - Client
       - AsyncClient
       - AsyncServer
+      - Channel
+      - AsyncChannel
       - Room

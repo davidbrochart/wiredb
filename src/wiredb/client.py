@@ -64,12 +64,10 @@ class Client:
 
         Args:
             channel: The channel used to communicate with the server.
-            id: The ID of the room to connect to in the server.
             doc: An optional external shared document (or a new one will be created).
             auto_push: Whether to automatically send updates of the shared document as they
                 are made by this client. If `False`, the client can use the `push()` method
                 to send the local updates.
-            kwargs: The arguments that are specific to the wire.
         """
         self._channel = channel
         self._doc: Doc = Doc() if doc is None else doc
@@ -159,7 +157,6 @@ class AsyncClient:
 
         Args:
             channel: The async channel used to communicate with the server.
-            id: The ID of the room to connect to in the server.
             doc: An optional external shared document (or a new one will be created).
             auto_push: Whether to automatically send updates of the shared document as they
                 are made by this client. If `False`, the client can use the `push()` method
@@ -167,7 +164,6 @@ class AsyncClient:
             auto_pull: Whether to automatically apply updates to the shared document
                 as they are received. If `False`, the client can use the `pull()`
                 method to apply the remote updates.
-            kwargs: The arguments that are specific to the wire.
         """
         self._channel = channel
         self._doc: Doc = Doc() if doc is None else doc
