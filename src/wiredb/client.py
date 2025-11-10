@@ -126,9 +126,7 @@ class Client:
                     self._synchronized = True
                     self._synchronizing = False
                     self._subscription = self._doc.observe(self._store_updates)
-
-            if self._synchronized:
-                return
+                    return
 
     def _store_updates(self, event: TransactionEvent) -> None:
         self._updates.append(event.update)
