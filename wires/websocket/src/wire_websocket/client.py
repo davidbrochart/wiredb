@@ -6,14 +6,27 @@ from contextlib import AsyncExitStack, ExitStack, contextmanager
 from queue import Empty
 from types import TracebackType
 
-from anyio import Lock, TASK_STATUS_IGNORED, create_task_group, get_cancelled_exc_class, sleep_forever
+from anyio import (
+    Lock,
+    TASK_STATUS_IGNORED,
+    create_task_group,
+    get_cancelled_exc_class,
+    sleep_forever,
+)
 from anyio.abc import TaskStatus
 from httpx import Cookies
 from httpx_ws import AsyncWebSocketSession, aconnect_ws
 from httpx_ws import WebSocketSession, connect_ws
 from pycrdt import Doc
 
-from wiredb import AsyncClient, AsyncChannel, Channel, AsyncClientMixin, ClientMixin, Client
+from wiredb import (
+    AsyncClient,
+    AsyncChannel,
+    Channel,
+    AsyncClientMixin,
+    ClientMixin,
+    Client,
+)
 
 if sys.version_info >= (3, 11):
     pass
@@ -22,7 +35,16 @@ else:  # pragma: nocover
 
 
 class WebSocketClient(ClientMixin):
-    def __init__(self, id: str = "", doc: Doc | None = None, auto_push: bool = False, *, host: str, port: int, cookies: Cookies | None = None) -> None:
+    def __init__(
+        self,
+        id: str = "",
+        doc: Doc | None = None,
+        auto_push: bool = False,
+        *,
+        host: str,
+        port: int,
+        cookies: Cookies | None = None,
+    ) -> None:
         self._id = id
         self._doc = doc
         self._auto_push = auto_push
@@ -59,7 +81,17 @@ class WebSocketClient(ClientMixin):
 
 
 class AsyncWebSocketClient(AsyncClientMixin):
-    def __init__(self, id: str = "", doc: Doc | None = None, auto_push: bool = True, auto_pull: bool = True, *, host: str, port: int, cookies: Cookies | None = None) -> None:
+    def __init__(
+        self,
+        id: str = "",
+        doc: Doc | None = None,
+        auto_push: bool = True,
+        auto_pull: bool = True,
+        *,
+        host: str,
+        port: int,
+        cookies: Cookies | None = None,
+    ) -> None:
         self._id = id
         self._doc = doc
         self._auto_push = auto_push
@@ -68,7 +100,9 @@ class AsyncWebSocketClient(AsyncClientMixin):
         self._port = port
         self._cookies = cookies
 
-    async def _aconnect_ws(self, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED) -> None:
+    async def _aconnect_ws(
+        self, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED
+    ) -> None:
         try:
             ws: AsyncWebSocketSession
             async with aconnect_ws(
@@ -86,7 +120,9 @@ class AsyncWebSocketClient(AsyncClientMixin):
         async with AsyncExitStack() as exit_stack:
             self._task_group = await exit_stack.enter_async_context(create_task_group())
             await self._task_group.start(self._aconnect_ws)
-            self._client = await AsyncClient(self._channel, self._doc, self._auto_push, self._auto_pull).__aenter__()
+            self._client = await AsyncClient(
+                self._channel, self._doc, self._auto_push, self._auto_pull
+            ).__aenter__()
             exit_stack.push_async_exit(self._client.__aexit__)
             self._exit_stack = exit_stack.pop_all()
         return self

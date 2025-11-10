@@ -30,8 +30,12 @@ class AsyncMemoryServer(AsyncServer):
         return await self._exit_stack.__aexit__(exc_type, exc_val, exc_tb)
 
     async def connect(self, id: str):
-        server_send_stream, client_receive_stream = create_memory_object_stream[bytes](max_buffer_size=math.inf)
-        client_send_stream, server_receive_stream = create_memory_object_stream[bytes](max_buffer_size=math.inf)
+        server_send_stream, client_receive_stream = create_memory_object_stream[bytes](
+            max_buffer_size=math.inf
+        )
+        client_send_stream, server_receive_stream = create_memory_object_stream[bytes](
+            max_buffer_size=math.inf
+        )
         channel = Memory(server_send_stream, server_receive_stream, id)
         room = await self.room_manager.get_room(id)
         await self._task_group.start(self._serve, room, channel)
@@ -40,7 +44,7 @@ class AsyncMemoryServer(AsyncServer):
     async def _serve(self, room: Room, channel: Memory, *, task_status):
         async with (
             channel._send_stream as channel._send_stream,
-            channel._receive_stream as channel._receive_stream
+            channel._receive_stream as channel._receive_stream,
         ):
             task_status.started()
             await room.serve(channel)

@@ -9,6 +9,7 @@ from wire_pipe import AsyncPipeClient, AsyncPipeServer
 
 pytestmark = pytest.mark.anyio
 
+
 async def test_pipe(anyio_backend: str) -> None:
     async with AsyncPipeServer() as server:
         connection0 = await server.connect("")

@@ -3,7 +3,13 @@ from collections.abc import Callable
 
 import pytest
 
-from anyio import TASK_STATUS_IGNORED, create_task_group, fail_after, sleep, sleep_forever
+from anyio import (
+    TASK_STATUS_IGNORED,
+    create_task_group,
+    fail_after,
+    sleep,
+    sleep_forever,
+)
 from anyio.abc import TaskStatus
 from pycrdt import Doc, Text
 
@@ -13,11 +19,16 @@ from wire_websocket import AsyncWebSocketServer, AsyncWebSocketClient, WebSocket
 
 pytestmark = pytest.mark.anyio
 
+
 async def test_server(free_tcp_port: int) -> None:
     async with AsyncWebSocketServer(host="localhost", port=free_tcp_port) as server:
         async with (
-            AsyncWebSocketClient(host="http://localhost", port=free_tcp_port) as client0,
-            AsyncWebSocketClient(host="http://localhost", port=free_tcp_port) as client1,
+            AsyncWebSocketClient(
+                host="http://localhost", port=free_tcp_port
+            ) as client0,
+            AsyncWebSocketClient(
+                host="http://localhost", port=free_tcp_port
+            ) as client1,
         ):
             assert len(server.room_manager._rooms) == 1
             text0 = client0.doc.get("text", type=Text)
@@ -51,14 +62,22 @@ async def test_multiple_servers(free_tcp_port_factory: Callable[[], int]) -> Non
             await self.task_group.start(self._connect_to_server)
             await super().run(*args, **kwargs)
 
-        async def _connect_to_server(self, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED) -> None:
-            async with AsyncWebSocketClient(id=self.id, doc=self.doc, host="http://localhost", port=port0):
+        async def _connect_to_server(
+            self, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED
+        ) -> None:
+            async with AsyncWebSocketClient(
+                id=self.id, doc=self.doc, host="http://localhost", port=port0
+            ):
                 task_status.started()
                 await sleep_forever()
 
-    async def run_server(port: int, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED) -> None:
+    async def run_server(
+        port: int, *, task_status: TaskStatus[None] = TASK_STATUS_IGNORED
+    ) -> None:
         if port != port0:
-            server = AsyncWebSocketServer(room_factory=MyRoom, host="localhost", port=port)
+            server = AsyncWebSocketServer(
+                room_factory=MyRoom, host="localhost", port=port
+            )
         else:
             server = AsyncWebSocketServer(host="localhost", port=port)
         async with server:
