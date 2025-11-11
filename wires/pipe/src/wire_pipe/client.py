@@ -34,10 +34,9 @@ class AsyncPipeClient(AsyncClientMixin):
         async with AsyncExitStack() as exit_stack:
             tg = await exit_stack.enter_async_context(create_task_group())
             channel = Pipe(tg, self._sender, self._receiver, self._id)
-            self._client = await AsyncClient(
-                channel, self._doc, self._auto_push, self._auto_pull
-            ).__aenter__()
-            exit_stack.push_async_exit(self._client.__aexit__)
+            self._client = await exit_stack.enter_async_context(
+                AsyncClient(channel, self._doc, self._auto_push, self._auto_pull)
+            )
             self._exit_stack = exit_stack.pop_all()
         return self
 
