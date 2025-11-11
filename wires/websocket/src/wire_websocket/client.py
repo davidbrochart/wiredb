@@ -65,8 +65,9 @@ class WebSocketClient(ClientMixin):
     def __enter__(self) -> "WebSocketClient":
         with ExitStack() as exit_stack:
             exit_stack.enter_context(self._connect_ws())
-            self._client = Client(self._channel, self._doc, self._auto_push).__enter__()
-            exit_stack.push(self._client.__exit__)
+            self._client = exit_stack.enter_context(
+                Client(self._channel, self._doc, self._auto_push)
+            )
             self._exit_stack = exit_stack.pop_all()
         return self
 
@@ -119,10 +120,9 @@ class AsyncWebSocketClient(AsyncClientMixin):
         async with AsyncExitStack() as exit_stack:
             self._task_group = await exit_stack.enter_async_context(create_task_group())
             await self._task_group.start(self._aconnect_ws)
-            self._client = await AsyncClient(
-                self._channel, self._doc, self._auto_push, self._auto_pull
-            ).__aenter__()
-            exit_stack.push_async_exit(self._client.__aexit__)
+            self._client = await exit_stack.enter_async_context(
+                AsyncClient(self._channel, self._doc, self._auto_push, self._auto_pull)
+            )
             self._exit_stack = exit_stack.pop_all()
         return self
 

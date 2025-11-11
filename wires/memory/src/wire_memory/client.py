@@ -32,10 +32,9 @@ class AsyncMemoryClient(AsyncClientMixin):
             send_stream = await exit_stack.enter_async_context(_send_stream)
             receive_stream = await exit_stack.enter_async_context(_receive_stream)
             self.channel = Memory(send_stream, receive_stream, self._id)
-            self._client = await AsyncClient(
-                self.channel, self._doc, self._auto_push, self._auto_pull
-            ).__aenter__()
-            exit_stack.push_async_exit(self._client.__aexit__)
+            self._client = await exit_stack.enter_async_context(
+                AsyncClient(self.channel, self._doc, self._auto_push, self._auto_pull)
+            )
             self._exit_stack = exit_stack.pop_all()
         return self
 

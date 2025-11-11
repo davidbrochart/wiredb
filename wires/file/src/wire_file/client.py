@@ -103,8 +103,9 @@ class FileClient(ClientMixin):
                 self._version,
                 message_list=message_list,
             )
-            self._client = Client(channel, self._doc, self._auto_push).__enter__()
-            exit_stack.push(self._client.__exit__)
+            self._client = exit_stack.enter_context(
+                Client(channel, self._doc, self._auto_push)
+            )
             self._exit_stack = exit_stack.pop_all()
         return self
 
@@ -193,10 +194,9 @@ class AsyncFileClient(AsyncClientMixin):
                 task_group=self._task_group,
                 lock=self._lock,
             )
-            self._client = await AsyncClient(
-                channel, self._doc, self._auto_push, self._auto_pull
-            ).__aenter__()
-            exit_stack.push_async_exit(self._client.__aexit__)
+            self._client = await exit_stack.enter_async_context(
+                AsyncClient(channel, self._doc, self._auto_push, self._auto_pull)
+            )
             self._exit_stack = exit_stack.pop_all()
         return self
 
