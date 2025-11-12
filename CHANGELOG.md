@@ -1,5 +1,9 @@
 # Version history
 
+## 0.7.1
+
+- Improve handling of context managers.
+
 ## 0.7.0
 
 This is a big refactor to get rid of the `connect` and `bind` functions, and the entry-points where wires are registered.
